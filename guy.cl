@@ -24,6 +24,7 @@
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
   (defun input-key-event (&key key state)
+    (print (list key state))
     (case key
       (:sdl-key-q (throw 'game-over 'quit))
       (:sdl-key-e (setf up state))
@@ -180,7 +181,7 @@ If resolve, gives the corrected xc,yc as well as the angle of the line, by buffe
                   (list x y rotate)))
               t)))))
 
-(defun collision-circle-circle (x1 y1 r1 x2 y2 r2)
+(defun collision-circle-circle (x1 y1 r1 x2 y2 &optional (r2 0))
   (< (+ (expt (- x2 x1) 2)
 	(expt (- y2 y1) 2))
      (expt (+ r1 r2) 2)))
@@ -188,7 +189,7 @@ If resolve, gives the corrected xc,yc as well as the angle of the line, by buffe
 (defun collision-resolve (guy-x guy-y guy-radius obstacles bound-list)
   "pushes circular character (guy-x,guy-y,guy-radius)
 away from (obstacles), returns " 
-  (let ((poly)(hit-wall)(bound)) 
+  (let ((poly)(hit-wall)(bound)(hit)) 
     (dotimes (poly-index (length obstacles))
       (setq poly (nth poly-index obstacles)
             bound (nth poly-index bound-list))
@@ -197,28 +198,30 @@ away from (obstacles), returns "
 	  ;;line crosses circle
 	  ;;FIXME: gets jittery in concave corners;
 	  ;;should find where lines cross and put Guy there
-          (dotimes (line-index (1- (/ (length poly) 2)))
-            (let* ((x1 (nth      (* line-index 2)  poly))
-                   (y1 (nth (+ 1 (* line-index 2)) poly))
-                   (x2 (nth (+ 2 (* line-index 2)) poly))
-                   (y2 (nth (+ 3 (* line-index 2)) poly)))
-              (let ((clc-output (collision-line-circle x1 y1 x2 y2 guy-x guy-y guy-radius :resolve 1/1000)))
-                (if clc-output 
-                    (destructuring-bind (xc yc wall) clc-output
-                      (setf hit-wall (if hit-wall
-                                         t
-                                         wall))
-                      (setf guy-x xc
-                            guy-y yc)))))))
-      ;;corner inside circle
-      (dotimes (point-index (/ (length poly) 2))
-        (let ((x (nth     (* 2 point-index)  poly))
-              (y (nth (1+ (* 2 point-index)) poly)))
+          (dotimes (line-index (1- (length poly))) ;line crosses circle
+	    (destructuring-bind
+		  ((x1 y1) (x2 y2))
+		(list (nth     line-index  poly)
+		      (nth (1+ line-index) poly))
+	      (let ((clc-output (collision-line-circle x1 y1 x2 y2 guy-x guy-y guy-radius :resolve 1/100)))
+		(if clc-output 
+		    (destructuring-bind (xc yc wall) clc-output
+		      (setf hit-wall (if hit-wall
+					 t
+					 wall)
+			    guy-x xc
+                            guy-y yc
+			    line-index 0
+			    hit t)))))))
+      (dotimes (point-index (length poly)) ;corner inside circle
+	(destructuring-bind (x y) (nth point-index poly)
           (if (> guy-radius (pythag (- x guy-x) (- y guy-y)))
               (let ((theta (atan (- guy-y y) (- guy-x x))))
                 (setf guy-x (+ x (* guy-radius (cos theta)))
-                      guy-y (+ y (* guy-radius (sin theta)))))))))
-    (list guy-x guy-y hit-wall)))
+                      guy-y (+ y (* guy-radius (sin theta)))
+		      hit t))))))
+    (if hit
+	(list (list guy-x guy-y) hit-wall))))
 
 (defun generate-bounding-circles (poly-list &aux (bound-list ()))
   "return list of rough bounding circles for each object"
@@ -246,8 +249,8 @@ away from (obstacles), returns "
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
   (define-class :fighter 1 20 100)
-  (setq *guy* (spawn-mortal :pos '(10 10) :class :fighter))
-  (setf *mapbounds* (generate-bounding-circles *map*))
+  (setq *guy* (spawn-mortal :pos '(10 10) :class :fighter)
+	*mapbounds* (generate-bounding-circles *map*))
   
   (catch 'game-over
     (sdl:with-init ()
@@ -266,7 +269,17 @@ away from (obstacles), returns "
 	 (let ((delta-t (- (car *time*) (cadr *time*))))
 	   (setf (get *guy* :vel) (update-velocity *guy* (get-input-polar) delta-t))
 	   (move *guy* delta-t))
-	 
+	 (let ((collision (collision-resolve (car (attribute *guy* :pos))
+					     (cadr (attribute *guy* :pos))
+					     (attribute *guy* :size)
+					     *map* *mapbounds*)))
+	   (when collision
+	     (destructuring-bind (pos hit-wall) collision
+	       (setf (get *guy* :pos) pos)
+	       (print hit-wall)
+
+)))
+		 
 	 (draw-guy *guy*)
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
