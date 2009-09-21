@@ -6,6 +6,7 @@
 (defvar *time* '(0))
 (defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
 (defvar *mapbounds*)
+(defvar *particles* nil)
 
 (defun init-options ()
   (setf (getf *options* :aa) t))
@@ -55,6 +56,15 @@
 (defun define-class (name size speed accel)
   (setf (getf *class-list* name)
 	(list :size size :speed speed :accel accel)))
+
+(defun project (x)
+  (round (* x *zoom*)))
+
+(defun project-pt (x-y-lst)
+  (let ((x (car x-y-lst))
+	(y (cadr x-y-lst)))
+    (sdl:point :x (* x *zoom*)
+	       :y (* y *zoom*))))
 
 (defun draw-guy (guy)
     (let* ((pos (attribute guy :pos))
@@ -114,15 +124,6 @@
 	    (vy (* vr (sin vtheta))))
       (setf (get guy :pos) (list (+ x (* vx delta-t))
 				 (+ y (* vy delta-t))))))))
-
-(defun project (x)
-  (round (* x *zoom*)))
-
-(defun project-pt (x-y-lst)
-  (let ((x (car x-y-lst))
-	(y (cadr x-y-lst)))
-    (sdl:point :x (* x *zoom*)
-	       :y (* y *zoom*))))
 
 (defun polarize-points (points-list &optional (rotate 0) &aux polar-list)
   (dotimes (point-index (/ (length points-list) 2))
@@ -193,7 +194,10 @@ away from (obstacles), returns "
             bound (nth poly-index bound-list))
       (if (< (pythag (- (first bound) guy-x) (- (second bound) guy-y))
              (+ guy-radius (third bound)))
-          (dotimes (line-index (1- (/ (length poly) 2))) ;line crosses circle
+	  ;;line crosses circle
+	  ;;FIXME: gets jittery in concave corners;
+	  ;;should find where lines cross and put Guy there
+          (dotimes (line-index (1- (/ (length poly) 2)))
             (let* ((x1 (nth      (* line-index 2)  poly))
                    (y1 (nth (+ 1 (* line-index 2)) poly))
                    (x2 (nth (+ 2 (* line-index 2)) poly))
@@ -206,7 +210,8 @@ away from (obstacles), returns "
                                          wall))
                       (setf guy-x xc
                             guy-y yc)))))))
-      (dotimes (point-index (/ (length poly) 2)) ;corner inside circle
+      ;;corner inside circle
+      (dotimes (point-index (/ (length poly) 2))
         (let ((x (nth     (* 2 point-index)  poly))
               (y (nth (1+ (* 2 point-index)) poly)))
           (if (> guy-radius (pythag (- x guy-x) (- y guy-y)))
