@@ -118,13 +118,13 @@
 	    (list new-vr new-vtheta)))
 	(list vr vtheta))))
 
-(defun move (guy delta-t)
-  (destructuring-bind (vr vtheta) (get guy :vel)
-    (destructuring-bind (x y) (get guy :pos)
+(defun move (pos vel delta-t)
+  (destructuring-bind (vr vtheta) vel
+    (destructuring-bind (x y) pos
       (let ((vx (* vr (cos vtheta)))
 	    (vy (* vr (sin vtheta))))
-      (setf (get guy :pos) (list (+ x (* vx delta-t))
-				 (+ y (* vy delta-t))))))))
+	(list (+ x (* vx delta-t))
+	      (+ y (* vy delta-t)))))))
 
 (defun polarize-points (points-list &optional (rotate 0) &aux polar-list)
   (dotimes (point-index (/ (length points-list) 2))
@@ -270,9 +270,14 @@ away from (obstacles), returns "
 	 (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second) (pop *time*)))
 
 	 ;;guy movement
-	 (let ((delta-t (- (car *time*) (cadr *time*))))
-	   (setf (get *guy* :vel) (update-velocity *guy* (get-input-polar) delta-t))
-	   (move *guy* delta-t))
+	 (let ((delta-t (- (car *time*) (cadr *time*)))
+	       (new-pos (attribute *guy* :pos))
+	       (new-vel (attribute *guy* :vel)))
+	   (setf new-vel (update-velocity *guy* (get-input-polar) delta-t)
+		 new-pos (move new-pos new-vel delta-t))
+	       (setf (get *guy* :pos) new-pos
+		     (get *guy* :vel) new-vel))
+	   
 
 	 ;;baddie movement
 	 (if (< (length *baddies*)
@@ -280,16 +285,19 @@ away from (obstacles), returns "
 	     (push (spawn-mortal :pos '(100 100) :class :baddie-swarmer) *baddies*))
 	 (let ((delta-t (- (car *time*) (cadr *time*))))
 	   (dolist (baddie *baddies*)
-	     (let* ((pos (attribute baddie :pos))
-		    (x (car pos))
-		    (y (cadr pos))
+	     (let* ((new-pos (attribute baddie :pos))
+		    (new-vel (attribute baddie :vel))
+		    (x (car new-pos))
+		    (y (cadr new-pos))
 		    (target-pos (attribute *guy* :pos))
 		    (target-x (car target-pos))
 		    (target-y (cadr target-pos))
 		    (target-theta (atan (- target-y y)
 					(- target-x x))))
-	       (setf (get baddie :vel) (update-velocity baddie (list 1 target-theta) delta-t))
-	       (move baddie delta-t))))
+	       (setf new-vel (update-velocity baddie (list 1 target-theta) delta-t))
+	       (setf new-pos (move new-pos new-vel delta-t))
+	       (setf (get baddie :pos) new-pos
+		     (get baddie :vel) new-vel))))
 	   
 	   
 
