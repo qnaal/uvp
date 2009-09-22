@@ -249,7 +249,10 @@ away from (obstacles), returns "
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
   (define-class :fighter 1 20 100)
-  (setq *guy* (spawn-mortal :pos '(10 10) :class :fighter)
+  (define-class :baddie-swarmer 1/2 10 50)
+  (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second))
+	*guy* (spawn-mortal :pos '(10 10) :class :fighter)
+	*baddies* ()
 	*mapbounds* (generate-bounding-circles *map*))
   
   (catch 'game-over
@@ -266,9 +269,30 @@ away from (obstacles), returns "
 	 ()
 	 (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second) (pop *time*)))
 
+	 ;;guy movement
 	 (let ((delta-t (- (car *time*) (cadr *time*))))
 	   (setf (get *guy* :vel) (update-velocity *guy* (get-input-polar) delta-t))
 	   (move *guy* delta-t))
+
+	 ;;baddie movement
+	 (if (< (length *baddies*)
+		10)
+	     (push (spawn-mortal :pos '(100 100) :class :baddie-swarmer) *baddies*))
+	 (let ((delta-t (- (car *time*) (cadr *time*))))
+	   (dolist (baddie *baddies*)
+	     (let* ((pos (attribute baddie :pos))
+		    (x (car pos))
+		    (y (cadr pos))
+		    (target-pos (attribute *guy* :pos))
+		    (target-x (car target-pos))
+		    (target-y (cadr target-pos))
+		    (target-theta (atan (- target-y y)
+					(- target-x x))))
+	       (setf (get baddie :vel) (update-velocity baddie (list 1 target-theta) delta-t))
+	       (move baddie delta-t))))
+	   
+	   
+
 	 (let ((collision (collision-resolve (car (attribute *guy* :pos))
 					     (cadr (attribute *guy* :pos))
 					     (attribute *guy* :size)
@@ -276,11 +300,11 @@ away from (obstacles), returns "
 	   (when collision
 	     (destructuring-bind (pos hit-wall) collision
 	       (setf (get *guy* :pos) pos)
-	       (print hit-wall)
-
-)))
+	       (print hit-wall))))
 		 
 	 (draw-guy *guy*)
+	 (dotimes (baddie-index (length *baddies*))
+	   (draw-guy (nth baddie-index *baddies*)))
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*))))))
