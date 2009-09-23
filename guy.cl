@@ -19,7 +19,7 @@
 
 (defun distance (x1 y1 x2 y2)
   (pythag (- x2 x1)
-	  (- y2 y1)))
+n	  (- y2 y1)))
 
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
@@ -40,11 +40,12 @@
       (list r-crop theta))))
       
 
-(defun spawn-mortal (&key pos class)
+(defun spawn-mortal (&key pos class control)
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
 	  (get mortal :vel) '(0 0)
+	  (get mortal :control) control
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
     mortal))
 
@@ -246,12 +247,20 @@ away from (obstacles), returns "
 	(push (list x-mid y-mid r) bound-list))))
   (nreverse bound-list))
 
+(defun get-run (mortal)
+  (case (attribute mortal :control)
+    (:ai (destructuring-bind ((x y) (target-x target-y))
+	     (list (attribute mortal :pos) (attribute *guy* :pos))
+	   (list 1 (atan (- target-y y)
+			 (- target-x x)))))
+    (:input (get-input-polar))))
+
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
   (define-class :fighter 1 20 100)
   (define-class :baddie-swarmer 1/2 10 50)
   (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second))
-	*guy* (spawn-mortal :pos '(10 10) :class :fighter)
+	*guy* (spawn-mortal :pos '(10 10) :class :fighter :control :input)
 	*baddies* ()
 	*mapbounds* (generate-bounding-circles *map*))
   
@@ -270,32 +279,25 @@ away from (obstacles), returns "
 	 (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second) (pop *time*)))
 
 	 ;;guy movement
-	 (let ((delta-t (- (car *time*) (cadr *time*)))
-	       (new-pos (attribute *guy* :pos))
-	       (new-vel (attribute *guy* :vel)))
-	   (setf new-vel (update-velocity *guy* (get-input-polar) delta-t)
-		 new-pos (move new-pos new-vel delta-t))
-	       (setf (get *guy* :pos) new-pos
-		     (get *guy* :vel) new-vel))
+;	 (let ((delta-t (- (car *time*) (cadr *time*)))
+;	       (run (get-run *guy*))
+;	       (new-pos (attribute *guy* :pos))
+;	       (new-vel (attribute *guy* :vel)))
+;	   (setf new-vel (update-velocity *guy* run delta-t)
+;		 new-pos (move new-pos new-vel delta-t))
+;	       (setf (get *guy* :pos) new-pos
+;		     (get *guy* :vel) new-vel))
 	   
 
 	 ;;baddie movement
 	 (if (< (length *baddies*)
 		10)
-	     (push (spawn-mortal :pos '(100 100) :class :baddie-swarmer) *baddies*))
+	     (push (spawn-mortal :pos '(100 100) :class :baddie-swarmer :control :ai) *baddies*))
 	 (let ((delta-t (- (car *time*) (cadr *time*))))
-	   (dolist (baddie *baddies*)
-	     (let* ((new-pos (attribute baddie :pos))
-		    (new-vel (attribute baddie :vel))
-		    (x (car new-pos))
-		    (y (cadr new-pos))
-		    (target-pos (attribute *guy* :pos))
-		    (target-x (car target-pos))
-		    (target-y (cadr target-pos))
-		    (target-theta (atan (- target-y y)
-					(- target-x x))))
-	       (setf new-vel (update-velocity baddie (list 1 target-theta) delta-t))
-	       (setf new-pos (move new-pos new-vel delta-t))
+	   (dolist (baddie (append *baddies* (list *guy*)))
+	     (let* ((run (get-run baddie))
+		    (new-vel (update-velocity baddie run delta-t))
+		    (new-pos (move (attribute baddie :pos) new-vel delta-t)))
 	       (setf (get baddie :pos) new-pos
 		     (get baddie :vel) new-vel))))
 	   
