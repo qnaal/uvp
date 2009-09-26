@@ -7,6 +7,7 @@
 (defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
+(defvar *buffer* (/ 1000))
 
 (defun init-options ()
   (setf (getf *options* :aa) t))
@@ -17,9 +18,11 @@
   (sqrt (+ (expt x 2)
 	   (expt y 2))))
 
-(defun distance (x1 y1 x2 y2)
-  (pythag (- x2 x1)
-n	  (- y2 y1)))
+(defun distance (pos1 pos2)
+  (destructuring-bind ((x1 y1) (x2 y2))
+      (list pos1 pos2)
+    (pythag (- x2 x1)
+	    (- y2 y1))))
 
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
@@ -55,9 +58,9 @@ n	  (- y2 y1)))
       (getf (getf *class-list* (get mortal :class))
 	   attribute)))
 
-(defun define-class (name size speed accel)
+(defun define-class (name size speed accel weight)
   (setf (getf *class-list* name)
-	(list :size size :speed speed :accel accel)))
+	(list :size size :speed speed :accel accel :weight weight)))
 
 (defun project (x)
   (round (* x *zoom*)))
@@ -187,9 +190,9 @@ If resolve, gives the corrected xc,yc as well as the angle of the line, by buffe
 	(expt (- y2 y1) 2))
      (expt (+ r1 r2) 2)))
 
-(defun collision-resolve (guy-x guy-y guy-radius obstacles bound-list)
+(defun collision-resolve-guy-wall (guy-x guy-y guy-radius obstacles bound-list)
   "pushes circular character (guy-x,guy-y,guy-radius)
-away from (obstacles), returns " 
+away from (obstacles) he is touching, returns new position" 
   (let ((poly)(hit-wall)(bound)(hit)) 
     (dotimes (poly-index (length obstacles))
       (setq poly (nth poly-index obstacles)
@@ -204,7 +207,7 @@ away from (obstacles), returns "
 		  ((x1 y1) (x2 y2))
 		(list (nth     line-index  poly)
 		      (nth (1+ line-index) poly))
-	      (let ((clc-output (collision-line-circle x1 y1 x2 y2 guy-x guy-y guy-radius :resolve 1/100)))
+	      (let ((clc-output (collision-line-circle x1 y1 x2 y2 guy-x guy-y guy-radius :resolve *buffer*)))
 		(if clc-output 
 		    (destructuring-bind (xc yc wall) clc-output
 		      (setf hit-wall (if hit-wall
@@ -255,15 +258,91 @@ away from (obstacles), returns "
 			 (- target-x x)))))
     (:input (get-input-polar))))
 
+(defun collision-resolve (everyone)
+  ;;cleared guys aren't touching any other cleared guys, or any walls
+  (let* ((cleared (make-list (length everyone))))
+    (do* ((guy-ndx 0 (mod (1+ guy-ndx)
+			  (length everyone)))
+	  (guy (car everyone) (nth guy-ndx everyone)))
+	 ;;If everyone's clear, we're good. Is there a better way to do this?
+	 ((let ((lst cleared))
+	    (dotimes (x (length lst) t)
+	      (if (null (nth x lst))
+		  (return)))))
+      (setf (nth guy-ndx cleared) t)
+					;	     (print cleared)
+      
+      (destructuring-bind ((x y) r loop-end) (list (attribute guy :pos)
+						   (attribute guy :size)
+						   0)
+	(do* ((other-guy-ndx 0 (mod (1+ other-guy-ndx)
+				    (length everyone)))
+	      (super-retarded-hack-switch 0 (1+ super-retarded-hack-switch))
+	      (other-guy (car everyone) (nth other-guy-ndx everyone)))
+	     ((or (and (= other-guy-ndx loop-end)
+		       (not (zerop super-retarded-hack-switch)))
+		  (> super-retarded-hack-switch 1000000000)))
+
+	  (when (not (eq guy other-guy))
+	    (destructuring-bind ((x2 y2) r2)
+		(list (attribute other-guy :pos)
+		      (attribute other-guy :size))
+	      (when (collision-circle-circle x y r x2 y2 r2)
+		;; We're moving him, so we can't trust that he's not hitting anything anymore
+		(setf (nth other-guy-ndx cleared) nil
+		      ;; also restart the loop
+		      loop-end other-guy-ndx)
+		(let* ((xdiff (- x2 x))
+		       (ydiff (- y2 y))
+		       (theta (atan ydiff
+				    xdiff))
+		       (cos-theta (cos theta)) 
+		       (sin-theta (sin theta)) 
+		       (overlap (- (+ r r2) (pythag xdiff ydiff)))
+		       (xmid (+ x (* (+ r (- (/ overlap 2)))
+				     cos-theta)))
+		       (ymid (+ y (* (+ r (- (/ overlap 2)))
+				     sin-theta))))
+		  ;;FIXME pull the buffer from somewhere
+		  (setf x  (+ xmid (* (+ r  (/ *buffer* 2)) (- cos-theta)))
+			y  (+ ymid (* (+ r  (/ *buffer* 2)) (- sin-theta)))
+			x2 (+ xmid (* (+ r2 (/ *buffer* 2)) cos-theta))
+			y2 (+ ymid (* (+ r2 (/ *buffer* 2)) sin-theta)))
+		  (setf (get other-guy :pos) (list x2 y2)))))))
+	(bottleneck 'col-guy)
+	(let ((collision (collision-resolve-guy-wall x y r
+						     *map*
+						     *mapbounds*)))
+	  (when collision
+	    (destructuring-bind ((x-new y-new) hit-wall) collision
+	      (setf x x-new
+		    y y-new))))
+	(setf (get guy :pos) (list x y))
+	(bottleneck 'col-wall)
+	))))
+
+
+(let ((last-time 0))
+  (defun bottleneck (label)
+    (let* ((now (get-internal-real-time))
+	   (lag (- now last-time)))
+      (incf (get 'bottleneck label 0) lag)
+      (setq last-time now))))
+
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 20 100)
-  (define-class :baddie-swarmer 1/2 10 50)
-  (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second))
-	*guy* (spawn-mortal :pos '(10 10) :class :fighter :control :input)
+  (define-class :fighter 1 20 100 10)
+  (define-class :baddie-swarmer 1/2 10 50 1)
+  (setq *time* (list (/ (get-internal-real-time)
+			internal-time-units-per-second))
+	*guy* (spawn-mortal :pos '(10 10)
+			    :class :fighter
+			    :control :input)
 	*baddies* ()
 	*mapbounds* (generate-bounding-circles *map*))
   
+  (setf (symbol-plist 'bottleneck) nil)
+  (bottleneck 'init)
   (catch 'game-over
     (sdl:with-init ()
       (sdl:window width height)
@@ -276,45 +355,38 @@ away from (obstacles), returns "
 	(:quit-event () t)
 	(:idle
 	 ()
-	 (setq *time* (list (/ (get-internal-real-time) internal-time-units-per-second) (pop *time*)))
+	 (setf (sdl:frame-rate) 0)
+	 (print (round (sdl:average-fps)))
+	 (setq *time* (list (/ (get-internal-real-time)
+			       internal-time-units-per-second)
+			    (pop *time*)))
 
-	 ;;guy movement
-;	 (let ((delta-t (- (car *time*) (cadr *time*)))
-;	       (run (get-run *guy*))
-;	       (new-pos (attribute *guy* :pos))
-;	       (new-vel (attribute *guy* :vel)))
-;	   (setf new-vel (update-velocity *guy* run delta-t)
-;		 new-pos (move new-pos new-vel delta-t))
-;	       (setf (get *guy* :pos) new-pos
-;		     (get *guy* :vel) new-vel))
-	   
-
-	 ;;baddie movement
+	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		10)
-	     (push (spawn-mortal :pos '(100 100) :class :baddie-swarmer :control :ai) *baddies*))
+		30)
+	     (push (spawn-mortal :pos '(50 50)
+				 :class :baddie-swarmer
+				 :control :ai)
+		   *baddies*))
+	 (bottleneck 'spawn-baddies)
 	 (let ((delta-t (- (car *time*) (cadr *time*))))
-	   (dolist (baddie (append *baddies* (list *guy*)))
-	     (let* ((run (get-run baddie))
-		    (new-vel (update-velocity baddie run delta-t))
-		    (new-pos (move (attribute baddie :pos) new-vel delta-t)))
-	       (setf (get baddie :pos) new-pos
-		     (get baddie :vel) new-vel))))
-	   
-	   
+	   (dolist (guy (append *baddies* (list *guy*)))
+	     (let* ((run (get-run guy))
+		    (new-vel (update-velocity guy run delta-t))
+		    (new-pos (move (attribute guy :pos) new-vel delta-t)))
+	       (setf (get guy :pos) new-pos
+		     (get guy :vel) new-vel))))
+	 (bottleneck 'get-run)
 
-	 (let ((collision (collision-resolve (car (attribute *guy* :pos))
-					     (cadr (attribute *guy* :pos))
-					     (attribute *guy* :size)
-					     *map* *mapbounds*)))
-	   (when collision
-	     (destructuring-bind (pos hit-wall) collision
-	       (setf (get *guy* :pos) pos)
-	       (print hit-wall))))
-		 
+	 (collision-resolve (append *baddies* (list *guy*)))
+
+	 (bottleneck 'movement)
+	 
 	 (draw-guy *guy*)
 	 (dotimes (baddie-index (length *baddies*))
 	   (draw-guy (nth baddie-index *baddies*)))
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
-	 (sdl:clear-display sdl:*black*))))))
+	 (sdl:clear-display sdl:*black*)
+	 (bottleneck 'draw)
+	 )))))
