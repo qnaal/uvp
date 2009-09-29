@@ -12,7 +12,7 @@
 (defun init-options ()
   (setf (getf *options* :aa) t))
 
-;(proclaim '(inline pythag distance))
+;(proclaim '(inline pythag distance collision-circle-circle))
 
 (defun pythag (x y)
   (sqrt (+ (expt x 2)
@@ -24,11 +24,15 @@
     (pythag (- x2 x1)
 	    (- y2 y1))))
 
+(defun spawn-particle (&key pos theta birth)
+  (push (list pos theta birth) *particles*))
+
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
   (defun input-key-event (&key key state)
     (print (list key state))
     (case key
+      (1 (print 'FIRE))
       (:sdl-key-q (throw 'game-over 'quit))
       (:sdl-key-e (setf up state))
       (:sdl-key-d (setf down state))
@@ -270,18 +274,17 @@ away from (obstacles) he is touching, returns new position"
 	      (if (null (nth x lst))
 		  (return)))))
       (setf (nth guy-ndx cleared) t)
-					;	     (print cleared)
+					;(print cleared)
       
       (destructuring-bind ((x y) r loop-end) (list (attribute guy :pos)
 						   (attribute guy :size)
 						   0)
 	(do* ((other-guy-ndx 0 (mod (1+ other-guy-ndx)
 				    (length everyone)))
-	      (super-retarded-hack-switch 0 (1+ super-retarded-hack-switch))
+	      (super-retarded-hack-switch nil t)
 	      (other-guy (car everyone) (nth other-guy-ndx everyone)))
-	     ((or (and (= other-guy-ndx loop-end)
-		       (not (zerop super-retarded-hack-switch)))
-		  (> super-retarded-hack-switch 1000000000)))
+	     ((and (= other-guy-ndx loop-end)
+		   super-retarded-hack-switch))
 
 	  (when (not (eq guy other-guy))
 	    (destructuring-bind ((x2 y2) r2)
@@ -296,18 +299,30 @@ away from (obstacles) he is touching, returns new position"
 		       (ydiff (- y2 y))
 		       (theta (atan ydiff
 				    xdiff))
-		       (cos-theta (cos theta)) 
-		       (sin-theta (sin theta)) 
-		       (overlap (- (+ r r2) (pythag xdiff ydiff)))
-		       (xmid (+ x (* (+ r (- (/ overlap 2)))
-				     cos-theta)))
-		       (ymid (+ y (* (+ r (- (/ overlap 2)))
-				     sin-theta))))
-		  ;;FIXME pull the buffer from somewhere
-		  (setf x  (+ xmid (* (+ r  (/ *buffer* 2)) (- cos-theta)))
-			y  (+ ymid (* (+ r  (/ *buffer* 2)) (- sin-theta)))
-			x2 (+ xmid (* (+ r2 (/ *buffer* 2)) cos-theta))
-			y2 (+ ymid (* (+ r2 (/ *buffer* 2)) sin-theta)))
+		       (cos-theta (cos theta))
+		       (sin-theta (sin theta))
+		       
+		       (overlap (-
+				 (+ r r2)
+				 (pythag xdiff ydiff)
+				 ))
+		       (pushdistance (+ overlap *buffer*))
+		       (weight (attribute guy :weight))
+		       (weight2 (attribute other-guy :weight))
+		       (push (/ weight
+				(+ weight weight2))))
+		  (setf x  (+ x (* (- 1 push)
+				   pushdistance
+				   (- cos-theta)))
+			y  (+ y (* (- 1 push)
+				   pushdistance
+				   (- sin-theta)))
+			x2 (+ x2 (* push
+				    pushdistance
+				    cos-theta))
+			y2 (+ y2 (* push
+				    pushdistance
+				    sin-theta)))
 		  (setf (get other-guy :pos) (list x2 y2)))))))
 	(bottleneck 'col-guy)
 	(let ((collision (collision-resolve-guy-wall x y r
@@ -331,7 +346,7 @@ away from (obstacles) he is touching, returns new position"
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 20 100 10)
+  (define-class :fighter 1 20 100 4)
   (define-class :baddie-swarmer 1/2 10 50 1)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
@@ -352,6 +367,8 @@ away from (obstacles) he is touching, returns new position"
 			 (input-key-event :key key :state 1))
 	(:key-up-event (:key key)
 		       (input-key-event :key key :state 0))
+	(:mouse-button-down-event (:button button)
+			 (input-key-event :key button :state 1))
 	(:quit-event () t)
 	(:idle
 	 ()
@@ -363,7 +380,7 @@ away from (obstacles) he is touching, returns new position"
 
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		30)
+		20)
 	     (push (spawn-mortal :pos '(50 50)
 				 :class :baddie-swarmer
 				 :control :ai)
