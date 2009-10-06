@@ -1,3 +1,6 @@
+(asdf:oos 'asdf:load-op 'lispbuilder-sdl)
+(asdf:oos 'asdf:load-op 'lispbuilder-sdl-gfx)
+
 (defvar *options* nil)
 (defvar *baddies* nil)
 (defvar *guy* nil)
@@ -178,6 +181,7 @@ If resolve, gives the corrected xc,yc as well as the angle of the line, by buffe
          (rotate (atan yd xd)))
     (destructuring-bind (rx1 ry1 rx2 ry2 rxc ryc)
         (rotate-points (list x1 y1 x2 y2 xc yc) (- rotate))
+      (declare (ignore ry2))
       (if (and (< (- ry1 rc) ryc (+ ry1 rc))
                (< rx1 rxc rx2)) ;if-collide
           (if resolve
@@ -302,10 +306,8 @@ away from (obstacles) he is touching, returns new position"
 		       (cos-theta (cos theta))
 		       (sin-theta (sin theta))
 		       
-		       (overlap (-
-				 (+ r r2)
-				 (pythag xdiff ydiff)
-				 ))
+		       (overlap (- (+ r r2)
+				   (pythag xdiff ydiff)))
 		       (pushdistance (+ overlap *buffer*))
 		       (weight (attribute guy :weight))
 		       (weight2 (attribute other-guy :weight))
@@ -330,6 +332,7 @@ away from (obstacles) he is touching, returns new position"
 						     *mapbounds*)))
 	  (when collision
 	    (destructuring-bind ((x-new y-new) hit-wall) collision
+	      (declare (ignore hit-wall))
 	      (setf x x-new
 		    y y-new))))
 	(setf (get guy :pos) (list x y))
@@ -361,7 +364,7 @@ away from (obstacles) he is touching, returns new position"
   (catch 'game-over
     (sdl:with-init ()
       (sdl:window width height)
-      
+      (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
 	(:key-down-event (:key key)
 			 (input-key-event :key key :state 1))
@@ -372,7 +375,6 @@ away from (obstacles) he is touching, returns new position"
 	(:quit-event () t)
 	(:idle
 	 ()
-	 (setf (sdl:frame-rate) 0)
 	 (print (round (sdl:average-fps)))
 	 (setq *time* (list (/ (get-internal-real-time)
 			       internal-time-units-per-second)
