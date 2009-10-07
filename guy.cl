@@ -339,6 +339,17 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
+(defun acceleration (guy dt)
+  (let ((pos (attribute guy :pos))
+	(vel (attribute guy :vel))
+	(run (get-run guy))
+	(accel (attribute guy :accel)))
+    (declare (ignore pos vel))
+    (list (* accel (car run))
+	  (cadr run))))
+
+;(defun rk4-integrate (pos vel t dt)
+
 
 (let ((last-time 0))
   (defun bottleneck (label)
