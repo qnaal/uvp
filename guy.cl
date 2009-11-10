@@ -222,7 +222,7 @@ away from (obstacles) he is touching, returns new position"
 					 t
 					 wall)
 			    guy-x xc
-                            guy-y yc
+			    guy-y yc
 			    line-index 0
 			    hit t)))))))
       (dotimes (point-index (length poly)) ;corner inside circle
@@ -339,23 +339,15 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
-(defun acceleration (guy dt)
-  (let ((pos (attribute guy :pos))
-	(vel (attribute guy :vel))
-	(run (get-run guy))
-	(accel (attribute guy :accel)))
-    (declare (ignore pos vel))
-    (list (* accel (car run))
-	  (cadr run))))
-
-;(defun rk4-integrate (pos vel t dt)
-
+(load "src/uvp/rk4.cl")
 
 (let ((last-time 0))
   (defun bottleneck (label)
     (let* ((now (get-internal-real-time))
 	   (lag (- now last-time)))
       (incf (get 'bottleneck label 0) lag)
+      (if (> lag 40)
+	  (print (list lag label)))
       (setq last-time now))))
 
 ;; The Top Gameloop
@@ -386,29 +378,51 @@ away from (obstacles) he is touching, returns new position"
 	(:quit-event () t)
 	(:idle
 	 ()
-	 (print (round (sdl:average-fps)))
+;	 (print (round (sdl:average-fps)))
 	 (setq *time* (list (/ (get-internal-real-time)
 			       internal-time-units-per-second)
 			    (pop *time*)))
 
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		20)
+		2)
 	     (push (spawn-mortal :pos '(50 50)
 				 :class :baddie-swarmer
 				 :control :ai)
 		   *baddies*))
 	 (bottleneck 'spawn-baddies)
-	 (let ((delta-t (- (car *time*) (cadr *time*))))
-	   (dolist (guy (append *baddies* (list *guy*)))
-	     (let* ((run (get-run guy))
-		    (new-vel (update-velocity guy run delta-t))
-		    (new-pos (move (attribute guy :pos) new-vel delta-t)))
-	       (setf (get guy :pos) new-pos
-		     (get guy :vel) new-vel))))
-	 (bottleneck 'get-run)
+	 ;;	 (let ((delta-t (- (car *time*) (cadr *time*))))
+	 ;;	   (dolist (guy (append *baddies* (list *guy*)))
+	 ;;	     (let* ((run (get-run guy))
+	 ;;		    (new-vel (update-velocity guy run delta-t))
+	 ;;		    (new-pos (move (attribute guy :pos) new-vel delta-t)))
+	 ;;	       (setf (get guy :pos) new-pos
+	 ;;		     (get guy :vel) new-vel))))
+	 ;;	 (bottleneck 'get-run)
 
-	 (collision-resolve (append *baddies* (list *guy*)))
+	 ;;(collision-resolve (append *baddies* (list *guy*)))
+
+	 (let ((state-lst)
+	       (everyone (append *baddies* (list *guy*)))
+	       (intgr-out))
+	   (dolist (guy everyone)
+	     (let* ((pos (attribute guy :pos))
+		    (vel-pol (attribute guy :vel))
+		    (vel (destructuring-bind (r theta) vel-pol
+			   (list (* r (cos theta))
+				 (* r (sin theta)))))
+		    (state (list pos vel)))
+	     (setf state-lst (append state-lst (list guy state)))))
+	   (destructuring-bind (t0 t1) *time*
+	     (let ((dt (- t1 t0)))
+	       (setf intgr-out (integrate state-lst t0 dt))))
+	   (dolist (guy everyone)
+	     (destructuring-bind (pos (vx vy))
+		 (pop intgr-out)
+	       (let ((vel-pol (list (pythag vx vy) (atan vy vx))))
+		 (setf (get guy :pos) pos
+		       (get guy :vel) vel-pol))))
+	   )
 
 	 (bottleneck 'movement)
 	 
