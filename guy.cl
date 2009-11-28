@@ -18,6 +18,7 @@
 ;(proclaim '(inline pythag distance collision-circle-circle))
 
 (defun pythag (x y)
+					;FIXME work on point, not two values
   (sqrt (+ (expt x 2)
 	   (expt y 2))))
 
@@ -54,7 +55,8 @@
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
-	  (get mortal :vel) '(0 0)
+	  (get mortal :vel-pol) '(0 0)
+	  (get mortal :acc-pol) '(0 0)
 	  (get mortal :control) control
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
     mortal))
@@ -65,9 +67,9 @@
       (getf (getf *class-list* (get mortal :class))
 	   attribute)))
 
-(defun define-class (name size speed accel weight)
+(defun define-class (name size speed accelk mass)
   (setf (getf *class-list* name)
-	(list :size size :speed speed :accel accel :weight weight)))
+	(list :size size :speed speed :accelk accelk :mass mass)))
 
 (defun project (x)
   (round (* x *zoom*)))
@@ -101,7 +103,7 @@
 (defun update-velocity (guy input delta-t)
   (let* ((ir (car input))
 	 (itheta (cadr input))
-	 (vel (attribute guy :vel))
+	 (vel (attribute guy :vel-pol))
 	 (vr (car vel))
 	 (vtheta (cadr vel))
 	 (topspeed (attribute guy :speed))
@@ -339,7 +341,86 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
+(defun vec+ (pt1 pt2)
+					;FIXME make this shit scalable
+  (mapcar #'+ pt1 pt2))
+
+(defun polarize (pt)
+  (destructuring-bind (x y) pt
+    (list (pythag x y) (atan y x))))
+
+(defun carterize (pt)
+  (destructuring-bind (r theta) pt
+    (list (* r (cos theta))
+	  (* r (sin theta)))))
+
+(defun rotate (pt-pol theta)
+  (destructuring-bind (r pre-theta) pt-pol
+    (list r (+ theta pre-theta))))
+
+(defun component (pt-pol theta)
+  (car (carterize (rotate pt-pol (- theta)))))
+
+(defun acceleration (everyone state-lst acc-pol-lst t1)
+  "returns everyone's acceleration"
+					;F = - k(vel-diff) - (relative-acc)
+					;F = - k(maxvel - currentvel) - (currentacc)
+					;a = (- k(0 - veldiff) - (last-acc-along-axis)) / mass
+  (declare (ignore t1 state-lst))
+  (let ((accel-lst))
+    (dotimes (i (length everyone) accel-lst)
+      ;;FIXME: converting cart-pol-cart in some cases
+      ;;make get-run report cart. coords
+      ;;but then again, r is easier to manipulate this way
+      (let* ((guy (nth i everyone))
+	     (speed (attribute guy :speed))
+	     (accelk (attribute guy :accelk))
+	     (mass (attribute guy :mass))
+	     (vel-current (carterize (or (attribute :vel-pol guy) '(0 0))))
+	     (acc0-pol (nth i acc-pol-lst))
+	     )
+	(destructuring-bind (run-r run-theta)
+	    (get-run guy)
+	  (print 'aaaaaaaaaa)
+	  ;(print acc0-pol)
+	  ;(print vel-current)
+	  (let* ((target-r (* speed run-r))
+		 (vel-target (list (* target-r (cos run-theta))
+				   (* target-r (sin run-theta))))
+		 (vel-diff-r (pythag (- (car  vel-target) (car  vel-current))
+				     (- (cadr vel-target) (cadr vel-current)))
+ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;figure this out
+		   )
+		 (vel-diff-theta (atan (- (cadr vel-target) (cadr vel-current))
+				       (- (car  vel-target) (car  vel-current))))
+		 (acc-along-axis (component acc0-pol vel-diff-theta))
+		 (r (/ (- (* accelk (- vel-diff-r 0)) acc-along-axis)
+		       mass))
+		 ;vel-diff is not right for this, perhaps?
+		 (x (* r (cos vel-diff-theta)))
+		 (y (* r (sin vel-diff-theta))))
+	    (print 'bbb)
+	    (print (list 'acc x y))
+;	    (print (list 'tr target-r))
+;	    (print (list 'vr r))
+	    (setf accel-lst (append accel-lst (list (list x y))))))))))
+
 (load "src/uvp/rk4.cl")
+
+(defun movement-debug (mortal)
+  (let ((vel (carterize (attribute mortal :vel-pol)))
+	(acc (carterize (attribute mortal :acc-pol)))
+	(target (carterize (get-run mortal))))
+    (sdl:draw-circle-* 50 50 50 :color sdl:*blue*)
+    (print (list 'accd acc))
+    (sdl:draw-pixel-* (+ 50 (round (* 30 (car  target))))
+		      (+ 50 (round (* 30 (cadr target)))) :color sdl:*blue*)
+    (sdl:draw-pixel-* (+ 50 (round (* 01 (car  vel))))
+		      (+ 50 (round (* 01 (cadr vel)))) :color sdl:*green*)
+    (sdl:draw-pixel-* (+ 50 (round (* 01 (car  acc))))
+		      (+ 50 (round (* 01 (cadr acc)))) :color sdl:*red*)
+    ))
+  
 
 (let ((last-time 0))
   (defun bottleneck (label)
@@ -352,7 +433,7 @@ away from (obstacles) he is touching, returns new position"
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 20 100 4)
+  (define-class :fighter 1 20 5 4)
   (define-class :baddie-swarmer 1/2 10 50 1)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
@@ -385,7 +466,7 @@ away from (obstacles) he is touching, returns new position"
 
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		2)
+		0)
 	     (push (spawn-mortal :pos '(50 50)
 				 :class :baddie-swarmer
 				 :control :ai)
@@ -403,29 +484,34 @@ away from (obstacles) he is touching, returns new position"
 	 ;;(collision-resolve (append *baddies* (list *guy*)))
 
 	 (let ((state-lst)
+	       (acc-pol-lst)
 	       (everyone (append *baddies* (list *guy*)))
 	       (intgr-out))
 	   (dolist (guy everyone)
 	     (let* ((pos (attribute guy :pos))
-		    (vel-pol (attribute guy :vel))
-		    (vel (destructuring-bind (r theta) vel-pol
-			   (list (* r (cos theta))
-				 (* r (sin theta)))))
-		    (state (list pos vel)))
-	     (setf state-lst (append state-lst (list guy state)))))
+		    (vel-pol (attribute guy :vel-pol))
+		    (vel (carterize vel-pol))
+		    (state (list pos vel))
+		    (acc-pol (attribute guy :acc-pol)))
+	       (setf state-lst (append state-lst (list state)))
+	       (setf acc-pol-lst (append acc-pol-lst (list acc-pol)))))
+	   (print (list 'acl acc-pol-lst))
 	   (destructuring-bind (t0 t1) *time*
 	     (let ((dt (- t1 t0)))
-	       (setf intgr-out (integrate state-lst t0 dt))))
+	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt))))
 	   (dolist (guy everyone)
-	     (destructuring-bind (pos (vx vy))
+	     (destructuring-bind (pos (vx vy) acc-pol)
 		 (pop intgr-out)
 	       (let ((vel-pol (list (pythag vx vy) (atan vy vx))))
 		 (setf (get guy :pos) pos
-		       (get guy :vel) vel-pol))))
+		       (get guy :vel-pol) vel-pol
+		       (get guy :acc-pol) acc-pol))))
 	   )
 
 	 (bottleneck 'movement)
 	 
+	 (movement-debug *guy*)
+
 	 (draw-guy *guy*)
 	 (dotimes (baddie-index (length *baddies*))
 	   (draw-guy (nth baddie-index *baddies*)))
