@@ -32,7 +32,6 @@
 		     (vx1 (+ vx0 (* dvx dt)))
 		     (vy1 (+ vy0 (* dvy dt))))
 		 (setf state-lst (append state-lst
-					 ;(list guy)
 					 (list (list vx1 vy1)))
 		       dpos-lst (append dpos-lst
 					(list (list vx1 vy1)))))))
@@ -56,13 +55,13 @@
 			     ((dpx4 dpy4) (dvx4 dvy4));d
 			     ((px py) (vx vy)))
 	    (list (pop a) (pop b) (pop c) (pop d)
-		  ;;(nth (1+ (* 2 ndx)) state0-lst))
 		  (nth ndx state0))
 	  (let ((dpx (* 1/6 (+ dpx1 (* 2 (+ dpx2 dpx3)) dpx4)))
 		(dpy (* 1/6 (+ dpy1 (* 2 (+ dpy2 dpy3)) dpy4)))
 		(dvx (* 1/6 (+ dvx1 (* 2 (+ dvx2 dvx3)) dvx4)))
-		(dvy (* 1/6 (+ dvy1 (* 2 (+ dvy2 dvy3)) dvy4)))
-)
+		(dvy (* 1/6 (+ dvy1 (* 2 (+ dvy2 dvy3)) dvy4))))
+	    ;;vel matches input
+	    ;;acc matches output
 	    (setf output (append output (list (list (list (+ px (* dt dpx)) (+ py (* dt dpy)))
 						    (list (+ vx (* dt dvx)) (+ vy (* dt dvy)))
 						    (polarize (list dvx dvy))

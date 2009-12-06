@@ -50,7 +50,7 @@
 	   (theta (atan y x)))
       (list r-crop theta))))
       
-
+;should include a key for any mods (from magic, leveling, etc)
 (defun spawn-mortal (&key pos class control)
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
@@ -67,9 +67,10 @@
       (getf (getf *class-list* (get mortal :class))
 	   attribute)))
 
-(defun define-class (name size speed accelk mass)
+;should macro this from a list of attributes
+(defun define-class (name size acc-spd leg-str mass)
   (setf (getf *class-list* name)
-	(list :size size :speed speed :accelk accelk :mass mass)))
+	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass)))
 
 (defun project (x)
   (round (* x *zoom*)))
@@ -341,9 +342,14 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
-(defun vec+ (pt1 pt2)
+(defun v+ (pt1 pt2)
+  "adds two cartesian points"
 					;FIXME make this shit scalable
   (mapcar #'+ pt1 pt2))
+
+(defun v- (pt1 pt2)
+  "subtracts two cartesian points"
+  (mapcar #'- pt1 pt2))
 
 (defun polarize (pt)
   (destructuring-bind (x y) pt
@@ -361,7 +367,7 @@ away from (obstacles) he is touching, returns new position"
 (defun component (pt-pol theta)
   (car (carterize (rotate pt-pol (- theta)))))
 
-(defun acceleration (everyone state-lst acc-pol-lst t1)
+(defun acceleration-motor (everyone state-lst acc-pol-lst t1)
   "returns everyone's acceleration"
 					;F = - k(vel-diff) - (relative-acc)
 					;F = - k(maxvel - currentvel) - (currentacc)
@@ -394,7 +400,7 @@ away from (obstacles) he is touching, returns new position"
 		 (vel-diff-theta (atan (- (cadr vel-target) (cadr vel-current))
 				       (- (car  vel-target) (car  vel-current))))
 		 (acc-along-axis (component acc0-pol vel-diff-theta))
-		 (r (/ (- (* accelk (- vel-diff-r 0)) acc-along-axis)
+		 (r (/ (- (* accelk (- vel-diff-r 0)) (* 1 acc-along-axis))
 		       mass))
 		 ;vel-diff is not right for this, perhaps?
 		 (x (* r (cos vel-diff-theta)))
@@ -405,6 +411,31 @@ away from (obstacles) he is touching, returns new position"
 ;	    (print (list 'vr r))
 	    (setf accel-lst (append accel-lst (list (list x y))))))))))
 
+(defun acceleration (everyone state-lst acc-pol-lst t1)
+  "returns everyone's acceleration"
+  (declare (ignore t1 state-lst acc-pol-lst))
+  (let ((accel-lst))
+    (dotimes (i (length everyone) accel-lst)
+      (let* ((guy (nth i everyone))
+	     (acc-spd (attribute guy :acc-spd))
+	     (leg-str (attribute guy :leg-str))
+	     (mass (attribute guy :mass))
+	     (size (attribute guy :size))
+	     (spd-max (* leg-str size (/ mass)))
+	     (acc-max (* leg-str (/ mass)))
+	     (vel-current (carterize (attribute guy :vel-pol))))
+	(destructuring-bind (run-r run-theta)
+	    (get-run guy)
+	  (let* ((target-r (* spd-max run-r))
+		 (vel-target (carterize (list target-r run-theta)))
+		 (vel-diff (v- vel-target vel-current))
+		 (vel-diff-pol (polarize vel-diff))
+		 (acc1-pol (list (* acc-max acc-spd (/ (car vel-diff-pol)
+					       spd-max))
+				 (cadr vel-diff-pol)))
+		 (acc1 (carterize acc1-pol)))
+	    (setf accel-lst (append accel-lst (list acc1)))))))))
+
 (load "src/uvp/rk4.cl")
 
 (defun movement-debug (mortal)
@@ -412,7 +443,7 @@ away from (obstacles) he is touching, returns new position"
 	(acc (carterize (attribute mortal :acc-pol)))
 	(target (carterize (get-run mortal))))
     (sdl:draw-circle-* 50 50 50 :color sdl:*blue*)
-    (print (list 'accd acc))
+    (sdl:draw-pixel-* 50 50 :color sdl:*white*)
     (sdl:draw-pixel-* (+ 50 (round (* 30 (car  target))))
 		      (+ 50 (round (* 30 (cadr target)))) :color sdl:*blue*)
     (sdl:draw-pixel-* (+ 50 (round (* 01 (car  vel))))
@@ -433,8 +464,8 @@ away from (obstacles) he is touching, returns new position"
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 20 5 4)
-  (define-class :baddie-swarmer 1/2 10 50 1)
+  (define-class :fighter 1 5 50 4)
+  (define-class :baddie-swarmer 1/2 1 50 1)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
 	*guy* (spawn-mortal :pos '(10 10)
@@ -466,7 +497,7 @@ away from (obstacles) he is touching, returns new position"
 
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		0)
+		1)
 	     (push (spawn-mortal :pos '(50 50)
 				 :class :baddie-swarmer
 				 :control :ai)
@@ -495,19 +526,17 @@ away from (obstacles) he is touching, returns new position"
 		    (acc-pol (attribute guy :acc-pol)))
 	       (setf state-lst (append state-lst (list state)))
 	       (setf acc-pol-lst (append acc-pol-lst (list acc-pol)))))
-	   (print (list 'acl acc-pol-lst))
-	   (destructuring-bind (t0 t1) *time*
+	   (destructuring-bind (t1 t0) *time*
 	     (let ((dt (- t1 t0)))
 	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt))))
 	   (dolist (guy everyone)
-	     (destructuring-bind (pos (vx vy) acc-pol)
+	     (destructuring-bind (pos vel acc-pol)
 		 (pop intgr-out)
-	       (let ((vel-pol (list (pythag vx vy) (atan vy vx))))
+	       (let ((vel-pol (polarize vel)))
 		 (setf (get guy :pos) pos
 		       (get guy :vel-pol) vel-pol
 		       (get guy :acc-pol) acc-pol))))
 	   )
-
 	 (bottleneck 'movement)
 	 
 	 (movement-debug *guy*)
