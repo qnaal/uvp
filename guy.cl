@@ -68,9 +68,9 @@
 	   attribute)))
 
 ;should macro this from a list of attributes
-(defun define-class (name size acc-spd leg-str mass)
+(defun define-class (name size acc-spd leg-str mass accelk)
   (setf (getf *class-list* name)
-	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass)))
+	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
 
 (defun project (x)
   (round (* x *zoom*)))
@@ -342,14 +342,20 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
-(defun v+ (pt1 pt2)
-  "adds two cartesian points"
+(defun v+ (v1 v2)
+  "adds two cartesian vectors"
 					;FIXME make this shit scalable
-  (mapcar #'+ pt1 pt2))
+  (mapcar #'+ v1 v2))
 
-(defun v- (pt1 pt2)
-  "subtracts two cartesian points"
-  (mapcar #'- pt1 pt2))
+(defun v- (v1 v2)
+  "subtracts two cartesian vectors"
+  (mapcar #'- v1 v2))
+
+(defun v* (s v)
+  "scalar-multiplys a cartesian vector"
+  (let ((output))
+    (dolist (component v (nreverse output))
+      (push (* s component) output))))
 
 (defun polarize (pt)
   (destructuring-bind (x y) pt
@@ -367,51 +373,52 @@ away from (obstacles) he is touching, returns new position"
 (defun component (pt-pol theta)
   (car (carterize (rotate pt-pol (- theta)))))
 
-(defun acceleration-motor (everyone state-lst acc-pol-lst t1)
-  "returns everyone's acceleration"
+(defun spring (k x &optional (v 0) (c 1))
+  "returnes force for a damped spring-mass system"
+  (- (* (- k) x)
+     (* c v)))
+
 					;F = - k(vel-diff) - (relative-acc)
 					;F = - k(maxvel - currentvel) - (currentacc)
 					;a = (- k(0 - veldiff) - (last-acc-along-axis)) / mass
-  (declare (ignore t1 state-lst))
+(defun acceleration (everyone state-lst acc-pol-lst t1)
+  "returns everyone's acceleration"
+  ;FIXME: needs to get pos/vel from state-lst, so rk4 works
+  (declare (ignore t1))
   (let ((accel-lst))
     (dotimes (i (length everyone) accel-lst)
-      ;;FIXME: converting cart-pol-cart in some cases
-      ;;make get-run report cart. coords
-      ;;but then again, r is easier to manipulate this way
       (let* ((guy (nth i everyone))
-	     (speed (attribute guy :speed))
-	     (accelk (attribute guy :accelk))
 	     (mass (attribute guy :mass))
-	     (vel-current (carterize (or (attribute :vel-pol guy) '(0 0))))
+	     (size (attribute guy :size))
+					;(acc-spd (attribute guy :acc-spd))
+	     (leg-str (attribute guy :leg-str))
+	     (accelk (attribute guy :accelk))
+	     (spd-max (* leg-str size (/ mass)))
+					;(acc-max (* leg-str (/ mass)))
 	     (acc0-pol (nth i acc-pol-lst))
+					;(vel-current (carterize (attribute guy :vel-pol)))
 	     )
-	(destructuring-bind (run-r run-theta)
-	    (get-run guy)
-	  (print 'aaaaaaaaaa)
-	  ;(print acc0-pol)
-	  ;(print vel-current)
-	  (let* ((target-r (* speed run-r))
-		 (vel-target (list (* target-r (cos run-theta))
-				   (* target-r (sin run-theta))))
-		 (vel-diff-r (pythag (- (car  vel-target) (car  vel-current))
-				     (- (cadr vel-target) (cadr vel-current)))
- ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;figure this out
-		   )
-		 (vel-diff-theta (atan (- (cadr vel-target) (cadr vel-current))
-				       (- (car  vel-target) (car  vel-current))))
-		 (acc-along-axis (component acc0-pol vel-diff-theta))
-		 (r (/ (- (* accelk (- vel-diff-r 0)) (* 1 acc-along-axis))
-		       mass))
-		 ;vel-diff is not right for this, perhaps?
-		 (x (* r (cos vel-diff-theta)))
-		 (y (* r (sin vel-diff-theta))))
-	    (print 'bbb)
-	    (print (list 'acc x y))
-;	    (print (list 'tr target-r))
-;	    (print (list 'vr r))
-	    (setf accel-lst (append accel-lst (list (list x y))))))))))
+	
+	(destructuring-bind ((run-r run-theta)
+			     (pos vel-current))
+	    (list (get-run guy)
+		  (nth i state-lst))
+	  (let* ((target-r (* spd-max run-r))
+		 (vel-target (carterize (list target-r run-theta)))
+		 (vel-diff (v- vel-current vel-target))
+		 (vel-diff-pol (polarize vel-diff))
+		 (vel-diff-r (car vel-diff-pol))
+		 (vel-diff-theta (cadr vel-diff-pol))
+		 (force (spring accelk
+				vel-diff-r
+					;(component acc0-pol vel-diff-theta)
+				))
+		 (acc1-pol (list (/ force mass)
+				 vel-diff-theta))
+		 (acc1 (carterize acc1-pol)))
+	    (setf accel-lst (append accel-lst (list acc1)))))))))
 
-(defun acceleration (everyone state-lst acc-pol-lst t1)
+(defun acceleration-dumb (everyone state-lst acc-pol-lst t1)
   "returns everyone's acceleration"
   (declare (ignore t1 state-lst acc-pol-lst))
   (let ((accel-lst))
@@ -446,10 +453,10 @@ away from (obstacles) he is touching, returns new position"
     (sdl:draw-pixel-* 50 50 :color sdl:*white*)
     (sdl:draw-pixel-* (+ 50 (round (* 30 (car  target))))
 		      (+ 50 (round (* 30 (cadr target)))) :color sdl:*blue*)
-    (sdl:draw-pixel-* (+ 50 (round (* 01 (car  vel))))
-		      (+ 50 (round (* 01 (cadr vel)))) :color sdl:*green*)
-    (sdl:draw-pixel-* (+ 50 (round (* 01 (car  acc))))
-		      (+ 50 (round (* 01 (cadr acc)))) :color sdl:*red*)
+    (sdl:draw-pixel-* (+ 50 (round (* 02 (car  vel))))
+		      (+ 50 (round (* 02 (cadr vel)))) :color sdl:*green*)
+    (sdl:draw-pixel-* (+ 50 (round (* 1/2 (car  acc))))
+		      (+ 50 (round (* 1/2 (cadr acc)))) :color sdl:*red*)
     ))
   
 
@@ -464,8 +471,8 @@ away from (obstacles) he is touching, returns new position"
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 5 50 4)
-  (define-class :baddie-swarmer 1/2 1 50 1)
+  (define-class :fighter 1 5 10 1/2 5)
+  (define-class :baddie-swarmer 1/2 1 50 1/2 2)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
 	*guy* (spawn-mortal :pos '(10 10)
