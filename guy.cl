@@ -15,6 +15,15 @@
 (defun init-options ()
   (setf (getf *options* :aa) t))
 
+(let ((last-time 0))
+  (defun bottleneck (label)
+    (let* ((now (get-internal-real-time))
+	   (lag (- now last-time)))
+      (incf (get 'bottleneck label 0) lag)
+      (if (> lag 40)
+	  (print (list lag label)))
+      (setq last-time now))))
+
 ;(proclaim '(inline pythag distance collision-circle-circle))
 
 (defun pythag (x y)
@@ -342,14 +351,13 @@ away from (obstacles) he is touching, returns new position"
 	(bottleneck 'col-wall)
 	))))
 
-(defun v+ (v1 v2)
-  "adds two cartesian vectors"
-					;FIXME make this shit scalable
-  (mapcar #'+ v1 v2))
+(defun v+ (&rest vectors)
+  "adds cartesian vectors"
+  (apply #'mapcar #'+ vectors))
 
-(defun v- (v1 v2)
-  "subtracts two cartesian vectors"
-  (mapcar #'- v1 v2))
+(defun v- (&rest vectors)
+  "subtracts cartesian vectors"
+  (apply #'mapcar #'- vectors))
 
 (defun v* (s v)
   "scalar-multiplys a cartesian vector"
@@ -378,44 +386,42 @@ away from (obstacles) he is touching, returns new position"
   (- (* (- k) x)
      (* c v)))
 
-					;F = - k(vel-diff) - (relative-acc)
-					;F = - k(maxvel - currentvel) - (currentacc)
-					;a = (- k(0 - veldiff) - (last-acc-along-axis)) / mass
+(defun acceleration-constant (everyone state-lst acc-pol-lst t1)
+  "returns constant acceleration along x-axis"
+  (declare (ignore state-lst acc-pol-lst t1))
+  (let ((accel-lst))
+    (dotimes (i (length everyone) accel-lst)
+      (push '(1/2 0) accel-lst))))
+
 (defun acceleration (everyone state-lst acc-pol-lst t1)
   "returns everyone's acceleration"
-  ;FIXME: needs to get pos/vel from state-lst, so rk4 works
-  (declare (ignore t1))
+  (declare (ignore t1 acc-pol-lst))
   (let ((accel-lst))
     (dotimes (i (length everyone) accel-lst)
       (let* ((guy (nth i everyone))
 	     (mass (attribute guy :mass))
 	     (size (attribute guy :size))
-					;(acc-spd (attribute guy :acc-spd))
 	     (leg-str (attribute guy :leg-str))
 	     (accelk (attribute guy :accelk))
-	     (spd-max (* leg-str size (/ mass)))
-					;(acc-max (* leg-str (/ mass)))
-	     (acc0-pol (nth i acc-pol-lst))
-					;(vel-current (carterize (attribute guy :vel-pol)))
-	     )
+	     (spd-max (* leg-str size (/ mass))))
 	
 	(destructuring-bind ((run-r run-theta)
 			     (pos vel-current))
 	    (list (get-run guy)
 		  (nth i state-lst))
+	  (declare (ignore pos))
 	  (let* ((target-r (* spd-max run-r))
 		 (vel-target (carterize (list target-r run-theta)))
 		 (vel-diff (v- vel-current vel-target))
 		 (vel-diff-pol (polarize vel-diff))
 		 (vel-diff-r (car vel-diff-pol))
 		 (vel-diff-theta (cadr vel-diff-pol))
-		 (force (spring accelk
-				vel-diff-r
-					;(component acc0-pol vel-diff-theta)
-				))
-		 (acc1-pol (list (/ force mass)
-				 vel-diff-theta))
-		 (acc1 (carterize acc1-pol)))
+		 (force-input-pol (list (spring accelk
+						vel-diff-r)
+					vel-diff-theta))
+		 (force-input (carterize force-input-pol))
+		 (force-total (v+ force-input))
+		 (acc1 (v* (/ mass) force-total)))
 	    (setf accel-lst (append accel-lst (list acc1)))))))))
 
 (defun acceleration-dumb (everyone state-lst acc-pol-lst t1)
@@ -456,23 +462,15 @@ away from (obstacles) he is touching, returns new position"
     (sdl:draw-pixel-* (+ 50 (round (* 02 (car  vel))))
 		      (+ 50 (round (* 02 (cadr vel)))) :color sdl:*green*)
     (sdl:draw-pixel-* (+ 50 (round (* 1/2 (car  acc))))
-		      (+ 50 (round (* 1/2 (cadr acc)))) :color sdl:*red*)
-    ))
+		      (+ 50 (round (* 1/2 (cadr acc)))) :color sdl:*red*)))
   
-
-(let ((last-time 0))
-  (defun bottleneck (label)
-    (let* ((now (get-internal-real-time))
-	   (lag (- now last-time)))
-      (incf (get 'bottleneck label 0) lag)
-      (if (> lag 40)
-	  (print (list lag label)))
-      (setq last-time now))))
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (define-class :fighter 1 5 10 1/2 5)
-  (define-class :baddie-swarmer 1/2 1 50 1/2 2)
+  (print (/ (get-internal-real-time)
+	    internal-time-units-per-second))
+  (define-class :fighter 1 5 10 1/2 1)
+  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
 	*guy* (spawn-mortal :pos '(10 10)
@@ -510,16 +508,6 @@ away from (obstacles) he is touching, returns new position"
 				 :control :ai)
 		   *baddies*))
 	 (bottleneck 'spawn-baddies)
-	 ;;	 (let ((delta-t (- (car *time*) (cadr *time*))))
-	 ;;	   (dolist (guy (append *baddies* (list *guy*)))
-	 ;;	     (let* ((run (get-run guy))
-	 ;;		    (new-vel (update-velocity guy run delta-t))
-	 ;;		    (new-pos (move (attribute guy :pos) new-vel delta-t)))
-	 ;;	       (setf (get guy :pos) new-pos
-	 ;;		     (get guy :vel) new-vel))))
-	 ;;	 (bottleneck 'get-run)
-
-	 ;;(collision-resolve (append *baddies* (list *guy*)))
 
 	 (let ((state-lst)
 	       (acc-pol-lst)
@@ -531,11 +519,12 @@ away from (obstacles) he is touching, returns new position"
 		    (vel (carterize vel-pol))
 		    (state (list pos vel))
 		    (acc-pol (attribute guy :acc-pol)))
-	       (setf state-lst (append state-lst (list state)))
-	       (setf acc-pol-lst (append acc-pol-lst (list acc-pol)))))
+	       (setf state-lst (append state-lst (list state))
+		     acc-pol-lst (append acc-pol-lst (list acc-pol)))))
 	   (destructuring-bind (t1 t0) *time*
 	     (let ((dt (- t1 t0)))
-	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt))))
+	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)
+		     )))
 	   (dolist (guy everyone)
 	     (destructuring-bind (pos vel acc-pol)
 		 (pop intgr-out)
@@ -555,4 +544,6 @@ away from (obstacles) he is touching, returns new position"
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
 	 (bottleneck 'draw)
-	 )))))
+	 ))))
+  (print *time*)
+  )

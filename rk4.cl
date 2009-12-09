@@ -21,26 +21,38 @@
 	       (setf out-deriv (append out-deriv (list (list (nth ndx dpos-lst)
 							     (nth ndx dvel-lst))))))))))
   
-  (defun integrate (everyone state0 acc0-pol-lst t0 dt)
+  (defun integrate (everyone state0-lst acc0-pol-lst t0 dt)
     "rk4-integrates the state to t0+dt"
-    (let* ((a (evaluate-deriv everyone state0 acc0-pol-lst t0              0))
-	   (b (evaluate-deriv everyone state0 acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) a))
-	   (c (evaluate-deriv everyone state0 acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) b))
-	   (d (evaluate-deriv everyone state0 acc0-pol-lst (+ t0 dt)       dt       c))
+    (let* ((a (evaluate-deriv everyone state0-lst acc0-pol-lst t0              0))
+	   (b (evaluate-deriv everyone state0-lst acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) a))
+	   (c (evaluate-deriv everyone state0-lst acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) b))
+	   (d (evaluate-deriv everyone state0-lst acc0-pol-lst (+ t0 dt)       dt       c))
 	   (output))
-      (dotimes (ndx (length a) output)
-	(destructuring-bind (((dpx1 dpy1) (dvx1 dvy1));a
-			     ((dpx2 dpy2) (dvx2 dvy2));b
-			     ((dpx3 dpy3) (dvx3 dvy3));c
-			     ((dpx4 dpy4) (dvx4 dvy4));d
-			     ((px py) (vx vy)))
+      (dotimes (ndx (length everyone) output)
+	(destructuring-bind ((dp1 dv1);a
+			     (dp2 dv2);b
+			     (dp3 dv3);c
+			     (dp4 dv4);d
+			     (pos vel))
 	    (list (pop a) (pop b) (pop c) (pop d)
-		  (nth ndx state0))
-	  (let ((dpx (* 1/6 (+ dpx1 (* 2 (+ dpx2 dpx3)) dpx4)))
-		(dpy (* 1/6 (+ dpy1 (* 2 (+ dpy2 dpy3)) dpy4)))
-		(dvx (* 1/6 (+ dvx1 (* 2 (+ dvx2 dvx3)) dvx4)))
-		(dvy (* 1/6 (+ dvy1 (* 2 (+ dvy2 dvy3)) dvy4))))
-	    (setf output (append output (list (list (list (+ px (* dt dpx)) (+ py (* dt dpy)))
-						    (list (+ vx (* dt dvx)) (+ vy (* dt dvy)))
-						    (polarize (list dvx dvy))
+		  (nth ndx state0-lst))
+	  (let ((dp (v* 1/6 (v+ dp1 (v* 2 (v+ dp2 dp3)) dp4)))
+		(dv (v* 1/6 (v+ dv1 (v* 2 (v+ dv2 dv3)) dv4))))
+	    (setf output (append output (list (list (v+ pos (v* dt dp))
+						    (v+ vel (v* dt dv))
+						    (polarize dv)
 						    ))))))))))
+
+(defun integrate-euler (everyone state0-lst acc0-pol-lst t0 dt)
+  (let ((dvel-lst (acceleration everyone state0-lst acc0-pol-lst (+ t0 dt)))
+	(output))
+    (dotimes (ndx (length everyone) output)
+      (destructuring-bind (dvel
+			   (pos0 vel0))
+	  (list (pop dvel-lst)
+		(nth ndx state0-lst))
+	(let ((dpos (v+ vel0 (v* dt dvel))))
+	  (setf output (append output (list (list (v+ pos0 (v* dt dpos))
+						  (v+ vel0 (v* dt dvel))
+						  (polarize dvel)
+						  )))))))))
