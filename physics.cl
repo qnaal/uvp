@@ -13,9 +13,15 @@
 (defun acceleration (everyone state-lst acc-pol-lst t1)
   "returns everyone's acceleration"
   (declare (ignore t1 acc-pol-lst))
-  (let ((accel-lst))
+  (let ((force-collision-plst (collision-resolve everyone
+						 (let ((pos-lst))
+						   (dolist (state state-lst (nreverse pos-lst))
+						     (push (car state) pos-lst)))
+						 *map*))
+	(accel-lst))
     (dotimes (i (length everyone) accel-lst)
       (let* ((guy (nth i everyone))
+	     (force-collision (or (getf force-collision-plst guy) '(0 0)))
 	     (mass (attribute guy :mass))
 	     (size (attribute guy :size))
 	     (leg-str (attribute guy :leg-str))
@@ -37,7 +43,7 @@
 						vel-diff-r)
 					vel-diff-theta))
 		 (force-input (carterize force-input-pol))
-		 (force-total (v+ force-input))
+		 (force-total (v+ force-input force-collision))
 		 (acc1 (v* (/ mass) force-total)))
 	    (setf accel-lst (append accel-lst (list acc1)))))))))
 
