@@ -116,17 +116,17 @@
   (let ((vel (carterize (attribute mortal :vel-pol)))
 	(acc (carterize (attribute mortal :acc-pol)))
 	;(contact (carterize *debug-contact*))
-	(contact *debug-contact*)
-	(contact-min (carterize (list 20 (cadr (polarize *debug-contact*)))))
+	;; (contact *debug-contact*)
+	;; (contact-min (carterize (list 20 (cadr (polarize *debug-contact*)))))
 	(target (carterize (get-run mortal))))
     (sdl:draw-circle-* 50 50 50 :color sdl:*blue*)
     (sdl:draw-pixel-* 50 50 :color sdl:*white*)
-    (sdl:draw-line-* 50 50
-		     (+ 50 (round (* 1 (car  contact-min))))
-		     (+ 50 (round (* 1 (cadr contact-min)))) :color sdl:*yellow*)
-    (sdl:draw-line-* 50 50
-		     (+ 50 (round (* 1 (car  contact))))
-		     (+ 50 (round (* 1 (cadr contact)))) :color sdl:*magenta*)
+    ;; (sdl:draw-line-* 50 50
+    ;; 		     (+ 50 (round (* 1 (car  contact-min))))
+    ;; 		     (+ 50 (round (* 1 (cadr contact-min)))) :color sdl:*yellow*)
+    ;; (sdl:draw-line-* 50 50
+    ;; 		     (+ 50 (round (* 1 (car  contact))))
+    ;; 		     (+ 50 (round (* 1 (cadr contact)))) :color sdl:*magenta*)
     (sdl:draw-pixel-* (+ 50 (round (* 30 (car  target))))
 		      (+ 50 (round (* 30 (cadr target)))) :color sdl:*blue*)
     (sdl:draw-pixel-* (+ 50 (round (* 02 (car  vel))))
@@ -173,7 +173,7 @@
 
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
-		30)
+		10)
 	     (push (spawn-mortal :pos '(50 50)
 				 :class :baddie-swarmer
 				 :control :ai)

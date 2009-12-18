@@ -49,15 +49,16 @@
 
 ;;outputs a plist:
 ;(guy (force [otherguy|:wall]) ...)
-(defun collision-resolve (everyone pos-lst obstacles)
+(defun collision-resolve (everyone pos-lst vel-lst obstacles)
   "returns a plist of the required force for every guy"
   (let ((contact-lst (generate-contacts everyone pos-lst obstacles))
-	;(force-lst-plst) ;plist of every collision force, for each guy
+	(vel-plst (mapcan 'list everyone vel-lst))
 	(guy-force-lst)
 	(force-plst)) ;plist of the combined collision force, for each guy
     (dolist (contact contact-lst)
       (destructuring-bind (depth normal guy) contact
-	(push (list guy (carterize (list (spring 5000 depth) normal))) guy-force-lst)))
+	(push (list guy (carterize (list (spring 5000 depth (component (polarize (getf vel-plst guy)) normal) 50)
+					 normal))) guy-force-lst)))
     (dolist (guy-force guy-force-lst)
       (destructuring-bind (guy force)
 	  guy-force
@@ -65,6 +66,6 @@
 	  (if oldforce
 	      (setf (getf force-plst guy) (v+ force oldforce))
 	      (setf (getf force-plst guy) force)))))
-    (if (getf force-plst *guy*)		;TEST
-	(setf *debug-contact* (getf force-plst *guy*)))
+    ;; (if (getf force-plst *guy*)		;TEST
+    ;; 	(setf *debug-contact* (getf force-plst *guy*)))
     force-plst))
