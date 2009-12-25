@@ -29,6 +29,7 @@
 	     (size (attribute guy :size))
 	     (leg-str (attribute guy :leg-str))
 	     (accelk (attribute guy :accelk))
+;	     (spd-max (* leg-str (/ mass))))
 	     (spd-max (* leg-str size (/ mass))))
 	
 	(destructuring-bind ((run-r run-theta)

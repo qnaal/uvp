@@ -1,5 +1,5 @@
 ;contact: (depth normal guy1 [guy2|:wall])
-;acontact: (depth normal)
+;acontact: (depth normal) "anonymouse contact"
 ;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
 
 (defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
@@ -29,26 +29,44 @@
 
 (defun generate-contacts (everyone pos-lst obstacles)
   (let ((contact-lst))
-    (dolist (poly obstacles)
-      (dotimes (line-ndx (1- (length poly)))
-	(dotimes (guy-ndx (length everyone))
-	  (let* ((guy (nth guy-ndx everyone))
-		 (pos (nth guy-ndx pos-lst))
-		 (size (attribute guy :size))
-		 (clc-output (collision-line-circle (nth     line-ndx  poly)
-						    (nth (1+ line-ndx) poly)
-						    pos size
-						    )))
-	    (if clc-output
-		(destructuring-bind (depth normal)
-		    clc-output
-		  ;(setf *debug-contact* clc-output) ;TEST
-		  (push (list depth normal guy) contact-lst)))))))
+    (dotimes (guy-ndx (length everyone))
+      (let* ((guy (nth guy-ndx everyone))
+	     (pos (nth guy-ndx pos-lst))
+	     (size (attribute guy :size)))
+
+	(dolist (poly obstacles)	;collisions with walls
+	  (dotimes (line-ndx (1- (length poly)))
+	    (let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
+							(nth (1+ line-ndx) poly)
+							pos size
+							)))
+	      (if line-acontact
+		  (destructuring-bind (depth normal)
+		      line-acontact
+					;(setf *debug-contact* line-acontact) ;TEST
+		    (push (list depth normal guy :wall) contact-lst)))))
+	  (dolist (corner poly)
+	    (let ((corner-acontact (collision-circle-circle pos corner size)))
+	      (if corner-acontact
+		  (destructuring-bind (depth normal)
+		      corner-acontact
+		    (push (list depth normal guy :wall) contact-lst))))))
+
+	(dotimes (o-guy-ndx (length everyone)) ;collisions with other guys
+	  (if (/= guy-ndx o-guy-ndx)
+	      (let* ((other-guy (nth o-guy-ndx everyone))
+		     (o-pos (nth o-guy-ndx pos-lst))
+		     (o-size (attribute other-guy :size))
+		     (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
+		(if melee-acontact
+		  (destructuring-bind (depth normal)
+		      melee-acontact
+		    (push (list depth normal guy other-guy) contact-lst))))))))
     contact-lst))
 
 
 ;;outputs a plist:
-;(guy (force [otherguy|:wall]) ...)
+;(guy force ...)
 (defun collision-resolve (everyone pos-lst vel-lst obstacles)
   "returns a plist of the required force for every guy"
   (let ((contact-lst (generate-contacts everyone pos-lst obstacles))
@@ -56,9 +74,18 @@
 	(guy-force-lst)
 	(force-plst)) ;plist of the combined collision force, for each guy
     (dolist (contact contact-lst)
-      (destructuring-bind (depth normal guy) contact
-	(push (list guy (carterize (list (spring 5000 depth (component (polarize (getf vel-plst guy)) normal) 50)
-					 normal))) guy-force-lst)))
+      (destructuring-bind (depth normal guy thing) contact
+	(let* ((vel-diff (if (getf vel-plst thing)
+			     (v- (getf vel-plst guy) (getf vel-plst thing))
+			     (getf vel-plst guy)))
+	       (vel-diff-component (component (polarize vel-diff) normal))
+	       (force-r (let* ((guy-type :guy)
+			       (thing-type (if (eq thing :wall)
+					       :wall
+					       :guy)))
+			  (destructuring-bind (k c) (getf (getf *collision-flavor* guy-type) thing-type)
+			    (spring k depth vel-diff-component c)))))
+	  (push (list guy (carterize (list force-r normal))) guy-force-lst))))
     (dolist (guy-force guy-force-lst)
       (destructuring-bind (guy force)
 	  guy-force

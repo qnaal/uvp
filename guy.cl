@@ -8,6 +8,7 @@
 (defvar *zoom* 10)
 (defvar *time* '(0))
 (defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
+(defparameter *collision-flavor* '(:guy (:guy (500 10) :wall (5000 50))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
@@ -27,8 +28,8 @@
 ;(proclaim '(inline pythag distance collision-circle-circle))
 (load "src/uvp/vector-math.cl")
 
-(defun spawn-particle (&key pos theta birth)
-  (push (list pos theta birth) *particles*))
+;; (defun spawn-particle (&key pos theta birth)
+;;   (push (list pos theta birth) *particles*))
 
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
@@ -139,7 +140,7 @@
 (defun play-a-game (&optional (width 800) (height 800))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 5 10 1/2 1)
+  (define-class :fighter 1 20 40 2 4)
   (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
   (setq *time* (list (/ (get-internal-real-time)
 			internal-time-units-per-second))
@@ -174,7 +175,7 @@
 	 (bottleneck 'loop-start)
 	 (if (< (length *baddies*)
 		10)
-	     (push (spawn-mortal :pos '(50 50)
+	     (push (spawn-mortal :pos '(45 45)
 				 :class :baddie-swarmer
 				 :control :ai)
 		   *baddies*))
