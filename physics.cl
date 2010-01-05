@@ -51,6 +51,15 @@
 		 (acc1 (v* (/ mass) force-total)))
 	    (setf accel-lst (append accel-lst (list acc1)))))))))
 
+(defun test-acc (everyone times)
+  (let ((state-lst))
+    (dolist (guy everyone)
+      (let ((state (list (attribute guy :pos)
+			 (carterize (attribute guy :vel-pol)))))
+	(setf state-lst (append state-lst (list state)))))
+    (dotimes (i times)
+      (acceleration everyone state-lst () ()))))
+
 ;; (defun acceleration-dumb (everyone state-lst acc-pol-lst t1)
 ;;   "returns everyone's acceleration"
 ;;   (declare (ignore t1 state-lst acc-pol-lst))

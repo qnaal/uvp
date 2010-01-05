@@ -50,3 +50,14 @@
 
 (defun component (pt-pol theta)
   (car (carterize (rotate pt-pol (- theta)))))
+
+(defun dot (v1 v2)
+  (apply '+ (apply 'mapcar '* (list v1 v2))))
+
+(defun proj (v1 v2)
+  (/ (dot v1 v2) (dot v2 v2)))
+
+(defun clamp (x min max)
+  (cond ((> x max) max)
+	((< x min) min)
+	(t x)))

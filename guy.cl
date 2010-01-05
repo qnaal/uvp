@@ -26,7 +26,21 @@
 	  (print (list lag label)))
       (setq last-time now))))
 
-;(proclaim '(inline pythag distance collision-circle-circle))
+(let ((clockcard)
+      (clocktotals))
+  (defun timeblock (label &optional end)
+    (let ((time (get-internal-real-time)))
+      (cond ((eq label 'reset) (setf clockcard nil
+				     clocktotals nil))
+	    (end (let ((dt (- time (getf clockcard label))))
+		   (setf (getf clocktotals label) (+ dt (getf clocktotals label 0)))
+		   (setf (getf clockcard label) nil)))
+	    (t (setf (getf clockcard label) time)))))
+  (defun timeblock-report ()
+    (print clocktotals)
+    clockcard))
+
+;; (proclaim '(inline pythag distance collision-circle-circle))
 (load "src/uvp/vector-math.cl")
 
 ;; (defun spawn-particle (&key pos theta birth)
@@ -152,11 +166,14 @@
   
   (setf (symbol-plist 'bottleneck) nil)
   (bottleneck 'init)
+  (timeblock 'reset)
+  (timeblock 'total)
   (catch 'game-over
     (sdl:with-init ()
-      (sdl:window width height)
-      (sdl:window width height :fps (make-instance 'sdl:fps-timestep))
-      ;; (setf (sdl:frame-rate) 0)
+      ;; (sdl:window width height)
+      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
+      (setf (sdl:frame-rate) 0)
+      (timeblock 'outside-loop)
       (sdl:with-events ()
 	(:key-down-event (:key key)
 			 (input-key-event :key key :state 1))
@@ -167,6 +184,8 @@
 	(:quit-event () t)
 	(:idle
 	 (sdl:with-timestep 
+	   (timeblock 'outside-loop t)
+	   (timeblock 'physics)
 	   (let ((state-lst)
 		 (acc-pol-lst)
 		 (everyone (append *baddies* (list *guy*)))
@@ -189,27 +208,94 @@
 		 (let ((vel-pol (polarize vel)))
 		   (setf (get guy :pos) pos
 			 (get guy :vel-pol) vel-pol
-			 (get guy :acc-pol) acc-pol))))
-	     ))
+			 (get guy :acc-pol) acc-pol)))))
+	   (timeblock 'physics t)
+	   (timeblock 'outside-loop)
+	   (bottleneck 'movement))
+
+	 (timeblock 'outside-loop t)
+	 (timeblock 'main)
 	 (bottleneck 'loop-start)
+	 (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
-		10)
-	     (push (spawn-mortal :pos '(45 45)
+		20)
+	     (push (spawn-mortal :pos (v+ '(51 51) (list (random 8.0) (random 8.0)))
 				 :class :baddie-swarmer
 				 :control :ai)
 		   *baddies*))
 	 (bottleneck 'spawn-baddies)
-
-	 (bottleneck 'movement)
-	 
 	 (movement-debug *guy*)
 
+	 (timeblock 'draw)
 	 (draw-guy *guy*)
 	 (dotimes (baddie-index (length *baddies*))
 	   (draw-guy (nth baddie-index *baddies*)))
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
+	 (timeblock 'draw t)
 	 (bottleneck 'draw)
+	 (timeblock 'main t)
+	 (timeblock 'outside-loop)
 	 ))))
-  )
+  (timeblock 'total t)
+  (timeblock-report))
+
+
+
+(defun test-loop (&optional (width 800) (height 800))
+  (print (/ (get-internal-real-time)
+	    internal-time-units-per-second))
+  (define-class :fighter 1 20 40 2 4)
+  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
+  (setq *guy* (spawn-mortal :pos '(10 10)
+			    :class :fighter
+			    :control :input)
+	*baddies* ()
+	;*mapbounds* (generate-bounding-circles *map*)
+	)
+  
+  (setf (symbol-plist 'bottleneck) nil)
+  (bottleneck 'init)
+  (timeblock 'reset)
+  (timeblock 'total)
+  (let ((timestep 0)
+	(main 0))
+    (catch 'game-over
+      (sdl:with-init ()
+	;; (sdl:window width height)
+	(sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
+	(setf (sdl:frame-rate) 0)
+	(timeblock 'outside-loop)
+	(sdl:with-events ()
+	  (:key-down-event ();:button button)
+			   (throw 'game-over 'quit))
+	  (:mouse-button-down-event ();:button button)
+				    (throw 'game-over 'quit))
+	  (:quit-event () t)
+	  (:idle
+	   (sdl:with-timestep 
+	     (timeblock 'outside-loop t)
+	     (timeblock 'timestep)
+
+	     (incf timestep)
+	     (print (list 'ts timestep))
+
+  	     (timeblock 'timestep t)
+	     (timeblock 'outside-loop))
+
+	   (timeblock 'outside-loop t)
+	   (timeblock 'main)
+
+	   (sleep .1)
+	   (incf main)
+	   (print (list 'main main))
+	   (print (list 'fps (round (sdl:average-fps))))
+	   (sdl:update-display)
+	   (sdl:clear-display sdl:*black*)
+
+	   (timeblock 'main t)
+	   (timeblock 'outside-loop)
+	   ))))
+    (timeblock 'total t)
+    (timeblock-report)))

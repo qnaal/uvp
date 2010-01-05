@@ -1,31 +1,45 @@
 ;contact: (depth normal guy1 [guy2|:wall])
-;acontact: (depth normal) "anonymouse contact"
+;acontact: (depth normal) "anonymous contact"
 ;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
 
+;; (defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
+;;   "returns contact if applicable"
+;;   (let ((line-angle (azimuth (v- line-pt2 line-pt1))))
+;;     (destructuring-bind ((rx1 ry1) (rx2 ry2) (rxc ryc))
+;; 	(rotate-points (- line-angle)
+;; 		       line-pt1 line-pt2 circle-pt)
+;;       (declare (ignore ry2))
+;;       (let ((distance-from-parallel (abs (- ryc ry1)))
+;; 	    )
+;; 	(if (and (< distance-from-parallel circle-r)
+;; 		 (< rx1 rxc rx2))
+;; 	    (list (- circle-r distance-from-parallel)
+;; 		  (- line-angle (* (if (plusp (- ryc ry1))
+;; 				       1
+;; 				       -1)
+;; 				   (/ pi 2)))))))))
+
 (defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
-  "returns contact if applicable"
-  (let ((line-angle (azimuth (v- line-pt2 line-pt1))))
-    (destructuring-bind ((rx1 ry1) (rx2 ry2) (rxc ryc))
-	(rotate-points (- line-angle)
-		       line-pt1 line-pt2 circle-pt)
-      (declare (ignore ry2))
-      (let ((distance-from-parallel (abs (- ryc ry1)))
-	    )
-	(if (and (< distance-from-parallel circle-r)
-		 (< rx1 rxc rx2))
-	    (list (- circle-r distance-from-parallel)
-		  (- line-angle (* (if (plusp (- ryc ry1))
-				       1
-				       -1)
-				   (/ pi 2)))
-		  ))))))
+  (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
+	 (circ (v- circle-pt line-pt1))
+	 (col-pt (v* (clamp (proj circ line) 0 1) ;the closest point on the line to the circle
+		     line)))
+    (collision-circle-circle circ col-pt circle-r)))
+		     
 
 (defun collision-circle-circle (circle1-pt circle2-pt min-dist)
   (let* ((v-diff (v- circle2-pt circle1-pt))
-	 (dist (abs (pythag v-diff))))
+	 (dist (pythag v-diff)))
     (if (< dist min-dist)
 	(list (- min-dist dist) (azimuth v-diff)))))
-	
+
+;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist) ;only sqrt if required, slower for some reason
+;;   (let* ((v-diff (v- circle2-pt circle1-pt))
+;; 	 (dist-squared (apply '+ (mapcar '* v-diff v-diff))))
+;;     (if (< dist-squared (expt min-dist 2))
+;; 	(list (- min-dist (expt dist-squared 1/2))
+;; 	      (azimuth v-diff)))))
+
 
 (defun generate-contacts (everyone pos-lst obstacles)
   (let ((contact-lst))
@@ -34,6 +48,7 @@
 	     (pos (nth guy-ndx pos-lst))
 	     (size (attribute guy :size)))
 
+	(timeblock 'col-walls)
 	(dolist (poly obstacles)	;collisions with walls
 	  (dotimes (line-ndx (1- (length poly)))
 	    (let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
@@ -51,17 +66,30 @@
 		  (destructuring-bind (depth normal)
 		      corner-acontact
 		    (push (list depth normal guy :wall) contact-lst))))))
+	(timeblock 'col-walls t)
 
-	(dotimes (o-guy-ndx (length everyone)) ;collisions with other guys
-	  (if (/= guy-ndx o-guy-ndx)
-	      (let* ((other-guy (nth o-guy-ndx everyone))
-		     (o-pos (nth o-guy-ndx pos-lst))
-		     (o-size (attribute other-guy :size))
-		     (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
-		(if melee-acontact
-		  (destructuring-bind (depth normal)
-		      melee-acontact
-		    (push (list depth normal guy other-guy) contact-lst))))))))
+	(timeblock 'col-guys)
+	;; (dotimes (o-guy-ndx (length everyone)) ;collisions with other guys
+	;;   (if (/= guy-ndx o-guy-ndx)
+	;;       (let* ((other-guy (nth o-guy-ndx everyone))
+	;; 	     (o-pos (nth o-guy-ndx pos-lst))
+	;; 	     (o-size (attribute other-guy :size))
+	;; 	     (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
+	;; 	(if melee-acontact
+	;; 	  (destructuring-bind (depth normal)
+	;; 	      melee-acontact
+	;; 	    (push (list depth normal guy other-guy) contact-lst))))))
+	(dotimes (o-guy-ndx guy-ndx) ;collisions with other guys
+	  (let* ((other-guy (nth o-guy-ndx everyone))
+		 (o-pos (nth o-guy-ndx pos-lst))
+		 (o-size (attribute other-guy :size))
+		 (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
+	    (if melee-acontact
+		(destructuring-bind (depth normal)
+		    melee-acontact
+		  (push (list depth (+ pi normal) other-guy guy) contact-lst)
+		  (push (list depth normal guy other-guy) contact-lst)))))
+	(timeblock 'col-guys t)))
     contact-lst))
 
 
@@ -69,6 +97,7 @@
 ;(guy force ...)
 (defun collision-resolve (everyone pos-lst vel-lst obstacles)
   "returns a plist of the required force for every guy"
+  (timeblock 'col-res)
   (let ((contact-lst (generate-contacts everyone pos-lst obstacles))
 	(vel-plst (mapcan 'list everyone vel-lst))
 	(guy-force-lst)
@@ -95,4 +124,5 @@
 	      (setf (getf force-plst guy) force)))))
     ;; (if (getf force-plst *guy*)		;TEST
     ;; 	(setf *debug-contact* (getf force-plst *guy*)))
+    (timeblock 'col-res t)
     force-plst))
