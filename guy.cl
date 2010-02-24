@@ -26,21 +26,36 @@
 	  (print (list lag label)))
       (setq last-time now))))
 
-(let ((clockcard)
-      (clocktotals))
+(let ((clockcard)			;if the block is open, contains the start time
+      (clocktotals)			;the total time each block has been open, excluding currently open blocks
+      (timesrun))			;the total number each block has been opened
   (defun timeblock (label &optional end)
+    "start logging a timeblock, or, if end is set, stop it.
+setting label to 'reset clears the tickers"
     (let ((time (get-internal-real-time)))
       (cond ((eq label 'reset) (setf clockcard nil
-				     clocktotals nil))
+				     clocktotals nil
+				     timesrun nil))
 	    (end (let ((dt (- time (getf clockcard label))))
 		   (setf (getf clocktotals label) (+ dt (getf clocktotals label 0)))
-		   (setf (getf clockcard label) nil)))
+		   (setf (getf clockcard label) nil)
+		   (incf (getf timesrun label 0))))
 	    (t (setf (getf clockcard label) time)))))
   (defun timeblock-report ()
+    (print 'totals)
     (print clocktotals)
-    clockcard))
+    (let ((avg-time))
+      (print 'avg-time-ms)
+      (dotimes (i (/ (length clocktotals) 2))
+	(let* ((label (nth (* 2 i) clocktotals))
+	       (total (getf clocktotals label))
+	       (runs (getf timesrun label)))
+	  (setf (getf avg-time label) (round (* 100 (/ total runs))))))
+      (print avg-time))
+    (print 'open-blocks)
+    (print clockcard)))
 
-;; (proclaim '(inline pythag distance collision-circle-circle))
+;;(proclaim '(inline pythag distance collision-circle-circle))
 (load "src/uvp/vector-math.cl")
 
 ;; (defun spawn-particle (&key pos theta birth)
@@ -155,8 +170,8 @@
 (defun play-a-game (&optional (width 800) (height 800))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 20 40 2 4)
-  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
+  (define-class :fighter 1 20 80 2 4)
+  (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
   (setq *guy* (spawn-mortal :pos '(10 10)
 			    :class :fighter
 			    :control :input)
@@ -198,10 +213,12 @@
 		      (acc-pol (attribute guy :acc-pol)))
 		 (setf state-lst (append state-lst (list state))
 		     acc-pol-lst (append acc-pol-lst (list acc-pol)))))
+	     (timeblock 'intgr)
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt)))
 	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)))
+	     (timeblock 'intgr t)
 	     (dolist (guy everyone)
 	       (destructuring-bind (pos vel acc-pol)
 		   (pop intgr-out)
@@ -239,7 +256,8 @@
 	 (timeblock 'outside-loop)
 	 ))))
   (timeblock 'total t)
-  (timeblock-report))
+  (timeblock-report)
+  t)
 
 
 

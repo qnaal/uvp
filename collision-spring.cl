@@ -28,10 +28,20 @@
 		     
 
 (defun collision-circle-circle (circle1-pt circle2-pt min-dist)
+;;  (declare (inline v- pythag azimuth))
   (let* ((v-diff (v- circle2-pt circle1-pt))
 	 (dist (pythag v-diff)))
-    (if (< dist min-dist)
-	(list (- min-dist dist) (azimuth v-diff)))))
+    (when (< dist min-dist)
+      (list (- min-dist dist) (azimuth v-diff)))))
+
+;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist) ;inline
+;;   (let* ((v-diff (mapcar '- circle2-pt circle1-pt))
+;;          (dist (destructuring-bind (x y) v-diff
+;;                  (sqrt (+ (expt x 2)
+;;                           (expt y 2))))))
+;;     (if (< dist min-dist)
+;;         (list (- min-dist dist) (destructuring-bind (x y) v-diff
+;;                                   (atan y x))))))
 
 ;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist) ;only sqrt if required, slower for some reason
 ;;   (let* ((v-diff (v- circle2-pt circle1-pt))
@@ -42,6 +52,7 @@
 
 
 (defun generate-contacts (everyone pos-lst obstacles)
+  (declare (inline collision-circle-circle))
   (let ((contact-lst))
     (dotimes (guy-ndx (length everyone))
       (let* ((guy (nth guy-ndx everyone))

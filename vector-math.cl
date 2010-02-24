@@ -1,10 +1,32 @@
-(defun v+ (&rest vectors)
-  "adds cartesian vectors"
-  (apply 'mapcar '+ vectors))
+;; (defun v+ (&rest vectors)
+;;   "adds cartesian vectors"
+;;   (apply 'mapcar '+ vectors))
 
-(defun v- (&rest vectors)
+;; (defun v+ (v1 v2)
+;;   "subtracts cartesian vectors"
+;;   (destructuring-bind ((x1 y1) (x2 y2))
+;;       (list v1 v2)
+;;     (list (+ x1 x2) (+ y1 y2))))
+
+(defun v+ (&rest vectors)
   "subtracts cartesian vectors"
-  (apply 'mapcar '- vectors))
+  (if (= 2 (length vectors))
+      (destructuring-bind ((x1 y1) (x2 y2))
+	  (list (first vectors)
+		(second vectors))
+	(list (+ x1 x2) (+ y1 y2)))
+      (apply #'mapcar #'+ vectors)))
+
+;; (defun v- (&rest vectors)
+;;   "subtracts cartesian vectors"
+;;   (apply 'mapcar '- vectors))
+
+;; (declaim (inline v-))
+(defun v- (v1 v2)
+  "subtracts cartesian vectors"
+  (destructuring-bind ((x1 y1) (x2 y2))
+      (list v1 v2)
+    (list (- x1 x2) (- y1 y2))))
 
 (defun v* (s v)
   "scalar-multiplys a cartesian vector"
@@ -51,8 +73,14 @@
 (defun component (pt-pol theta)
   (car (carterize (rotate pt-pol (- theta)))))
 
+;; (defun dot (v1 v2)
+;;   (apply '+ (apply 'mapcar '* (list v1 v2))))
+
 (defun dot (v1 v2)
-  (apply '+ (apply 'mapcar '* (list v1 v2))))
+  (destructuring-bind ((x1 y1) (x2 y2))
+      (list v1 v2)
+    (+ (* x1 x2)
+       (* y1 y2))))
 
 (defun proj (v1 v2)
   (/ (dot v1 v2) (dot v2 v2)))
