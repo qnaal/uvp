@@ -17,44 +17,6 @@
 (defun init-options ()
   (setf (getf *options* :aa) t))
 
-(let ((last-time 0))
-  (defun bottleneck (label)
-    (let* ((now (get-internal-real-time))
-	   (lag (- now last-time)))
-      (incf (get 'bottleneck label 0) lag)
-      (if (> lag 40)
-	  (print (list lag label)))
-      (setq last-time now))))
-
-(let ((clockcard)			;if the block is open, contains the start time
-      (clocktotals)			;the total time each block has been open, excluding currently open blocks
-      (timesrun))			;the total number each block has been opened
-  (defun timeblock (label &optional end)
-    "start logging a timeblock, or, if end is set, stop it.
-setting label to 'reset clears the tickers"
-    (let ((time (get-internal-real-time)))
-      (cond ((eq label 'reset) (setf clockcard nil
-				     clocktotals nil
-				     timesrun nil))
-	    (end (let ((dt (- time (getf clockcard label))))
-		   (setf (getf clocktotals label) (+ dt (getf clocktotals label 0)))
-		   (setf (getf clockcard label) nil)
-		   (incf (getf timesrun label 0))))
-	    (t (setf (getf clockcard label) time)))))
-  (defun timeblock-report ()
-    (print 'totals)
-    (print clocktotals)
-    (let ((avg-time))
-      (print 'avg-time-ms)
-      (dotimes (i (/ (length clocktotals) 2))
-	(let* ((label (nth (* 2 i) clocktotals))
-	       (total (getf clocktotals label))
-	       (runs (getf timesrun label)))
-	  (setf (getf avg-time label) (round (* 100 (/ total runs))))))
-      (print avg-time))
-    (print 'open-blocks)
-    (print clockcard)))
-
 ;;(proclaim '(inline pythag distance collision-circle-circle))
 (load "src/uvp/vector-math.cl")
 
@@ -144,6 +106,7 @@ setting label to 'reset clears the tickers"
 (load "src/uvp/rk4.cl")
 
 (defun movement-debug (mortal)
+  "radar thing"
   (let ((vel (carterize (attribute mortal :vel-pol)))
 	(acc (carterize (attribute mortal :acc-pol)))
 	;(contact (carterize *debug-contact*))
@@ -179,16 +142,11 @@ setting label to 'reset clears the tickers"
 	;*mapbounds* (generate-bounding-circles *map*)
 	)
   
-  (setf (symbol-plist 'bottleneck) nil)
-  (bottleneck 'init)
-  (timeblock 'reset)
-  (timeblock 'total)
   (catch 'game-over
     (sdl:with-init ()
       ;; (sdl:window width height)
       (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
       (setf (sdl:frame-rate) 0)
-      (timeblock 'outside-loop)
       (sdl:with-events ()
 	(:key-down-event (:key key)
 			 (input-key-event :key key :state 1))
@@ -199,8 +157,6 @@ setting label to 'reset clears the tickers"
 	(:quit-event () t)
 	(:idle
 	 (sdl:with-timestep 
-	   (timeblock 'outside-loop t)
-	   (timeblock 'physics)
 	   (let ((state-lst)
 		 (acc-pol-lst)
 		 (everyone (append *baddies* (list *guy*)))
@@ -213,26 +169,18 @@ setting label to 'reset clears the tickers"
 		      (acc-pol (attribute guy :acc-pol)))
 		 (setf state-lst (append state-lst (list state))
 		     acc-pol-lst (append acc-pol-lst (list acc-pol)))))
-	     (timeblock 'intgr)
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt)))
 	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)))
-	     (timeblock 'intgr t)
 	     (dolist (guy everyone)
 	       (destructuring-bind (pos vel acc-pol)
 		   (pop intgr-out)
 		 (let ((vel-pol (polarize vel)))
 		   (setf (get guy :pos) pos
 			 (get guy :vel-pol) vel-pol
-			 (get guy :acc-pol) acc-pol)))))
-	   (timeblock 'physics t)
-	   (timeblock 'outside-loop)
-	   (bottleneck 'movement))
+			 (get guy :acc-pol) acc-pol))))))
 
-	 (timeblock 'outside-loop t)
-	 (timeblock 'main)
-	 (bottleneck 'loop-start)
 	 (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
 		20)
@@ -240,24 +188,15 @@ setting label to 'reset clears the tickers"
 				 :class :baddie-swarmer
 				 :control :ai)
 		   *baddies*))
-	 (bottleneck 'spawn-baddies)
 	 (movement-debug *guy*)
 
-	 (timeblock 'draw)
 	 (draw-guy *guy*)
 	 (dotimes (baddie-index (length *baddies*))
 	   (draw-guy (nth baddie-index *baddies*)))
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
-	 (timeblock 'draw t)
-	 (bottleneck 'draw)
-	 (timeblock 'main t)
-	 (timeblock 'outside-loop)
-	 ))))
-  (timeblock 'total t)
-  (timeblock-report)
-  t)
+	 )))))
 
 
 
@@ -273,10 +212,6 @@ setting label to 'reset clears the tickers"
 	;*mapbounds* (generate-bounding-circles *map*)
 	)
   
-  (setf (symbol-plist 'bottleneck) nil)
-  (bottleneck 'init)
-  (timeblock 'reset)
-  (timeblock 'total)
   (let ((timestep 0)
 	(main 0))
     (catch 'game-over
@@ -284,7 +219,6 @@ setting label to 'reset clears the tickers"
 	;; (sdl:window width height)
 	(sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
 	(setf (sdl:frame-rate) 0)
-	(timeblock 'outside-loop)
 	(sdl:with-events ()
 	  (:key-down-event ();:button button)
 			   (throw 'game-over 'quit))
@@ -293,17 +227,11 @@ setting label to 'reset clears the tickers"
 	  (:quit-event () t)
 	  (:idle
 	   (sdl:with-timestep 
-	     (timeblock 'outside-loop t)
-	     (timeblock 'timestep)
 
 	     (incf timestep)
-	     (print (list 'ts timestep))
+	     (print (list 'ts timestep)))
 
-  	     (timeblock 'timestep t)
-	     (timeblock 'outside-loop))
 
-	   (timeblock 'outside-loop t)
-	   (timeblock 'main)
 
 	   (sleep .1)
 	   (incf main)
@@ -312,8 +240,4 @@ setting label to 'reset clears the tickers"
 	   (sdl:update-display)
 	   (sdl:clear-display sdl:*black*)
 
-	   (timeblock 'main t)
-	   (timeblock 'outside-loop)
-	   ))))
-    (timeblock 'total t)
-    (timeblock-report)))
+	   ))))))

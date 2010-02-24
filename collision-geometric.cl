@@ -219,7 +219,6 @@ away from (obstacles) he is touching, returns new position"
 				    pushdistance
 				    sin-theta)))
 		  (setf (get other-guy :pos) (list x2 y2)))))))
-	(bottleneck 'col-guy)
 	(let ((collision (collision-resolve-guy-wall x y r
 						     *map*
 						     *mapbounds*)))
@@ -229,5 +228,4 @@ away from (obstacles) he is touching, returns new position"
 	      (setf x x-new
 		    y y-new))))
 	(setf (get guy :pos) (list x y))
-	(bottleneck 'col-wall)
 	))))
