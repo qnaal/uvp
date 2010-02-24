@@ -24,9 +24,9 @@
 ;; (declaim (inline v-))
 (defun v- (v1 v2)
   "subtracts cartesian vectors"
-  (destructuring-bind ((x1 y1) (x2 y2))
-      (list v1 v2)
-    (list (- x1 x2) (- y1 y2))))
+  (destructuring-bind (x1 y1) v1
+    (destructuring-bind (x2 y2) v2
+      (list (- x1 x2) (- y1 y2)))))
 
 (defun v* (s v)
   "scalar-multiplys a cartesian vector"
@@ -70,19 +70,22 @@
 			       theta))
 	    rotated))))
 
-(defun component (pt-pol theta)
-  (car (carterize (rotate pt-pol (- theta)))))
+(defun component (pt theta)
+  (dot pt (list (cos theta)
+		(sin theta))))
 
 ;; (defun dot (v1 v2)
 ;;   (apply '+ (apply 'mapcar '* (list v1 v2))))
 
 (defun dot (v1 v2)
-  (destructuring-bind ((x1 y1) (x2 y2))
-      (list v1 v2)
-    (+ (* x1 x2)
-       (* y1 y2))))
+  "returns the product of the lengths of the two vectors and the cosine of the angle between them"
+  (destructuring-bind (x1 y1) v1
+    (destructuring-bind (x2 y2) v2
+      (+ (* x1 x2)
+	 (* y1 y2)))))
 
 (defun proj (v1 v2)
+  "closest point on vec O->v2 to v1, in terms of the length of O->v2"
   (/ (dot v1 v2) (dot v2 v2)))
 
 (defun clamp (x min max)

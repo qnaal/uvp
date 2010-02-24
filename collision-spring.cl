@@ -114,7 +114,7 @@
 	(let* ((vel-diff (if (getf vel-plst thing)
 			     (v- (getf vel-plst guy) (getf vel-plst thing))
 			     (getf vel-plst guy)))
-	       (vel-diff-component (component (polarize vel-diff) normal))
+	       (vel-diff-component (component vel-diff normal))
 	       (force-r (let* ((guy-type :guy)
 			       (thing-type (if (eq thing :wall)
 					       :wall

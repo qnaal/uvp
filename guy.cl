@@ -133,8 +133,8 @@
 (defun play-a-game (&optional (width 800) (height 800))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 20 80 2 4)
-  (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
+  (define-class :fighter 1 20 40 2 4)
+  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
   (setq *guy* (spawn-mortal :pos '(10 10)
 			    :class :fighter
 			    :control :input)
@@ -196,7 +196,8 @@
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
-	 )))))
+	 ))))
+  t)
 
 
 
