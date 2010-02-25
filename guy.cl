@@ -8,17 +8,26 @@
 (defvar *zoom* 10)
 ;; (defvar *time* '(0))
 ;(defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
-(defvar *map* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
+(defvar *map-load* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
 (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
 
+(load "src/uvp/vector-math.cl")
+
+(defun generate-map (map)
+  (let ((map-gen))
+    (dolist (poly map)
+      (let ((poly-gen))
+	(dolist (lst-pt poly)
+	  (destructuring-bind (x y) lst-pt
+	    (push (make-pt x y) poly-gen)))
+	(push poly-gen map-gen)))
+    map-gen))
+
 (defun init-options ()
   (setf (getf *options* :aa) t))
-
-;;(proclaim '(inline pythag distance collision-circle-circle))
-(load "src/uvp/vector-math.cl")
 
 ;; (defun spawn-particle (&key pos theta birth)
 ;;   (push (list pos theta birth) *particles*))
@@ -37,18 +46,18 @@
   (defun get-input-polar ()
     (let* ((y (- down up))
 	   (x (- right left))
-	   (r (pythag (list x y)))
+	   (r (pythag (make-pt x y)))
 	   (r-crop (if (> r 1) 1 r))
 	   (theta (atan y x)))
-      (list r-crop theta))))
-      
-;should include a key for any mods (from magic, leveling, etc)
+      (make-pt-pol r-crop theta))))
+
+;; should include a key for any mods (from magic, leveling, etc)
 (defun spawn-mortal (&key pos class control)
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
-	  (get mortal :vel-pol) '(0 0)
-	  (get mortal :acc-pol) '(0 0)
+	  (get mortal :vel-pol) (make-pt-pol)
+	  (get mortal :acc-pol) (make-pt-pol)
 	  (get mortal :control) control
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
     mortal))
@@ -59,7 +68,7 @@
       (getf (getf *class-list* (get mortal :class))
 	   attribute)))
 
-;should macro this from a list of attributes
+;; should macro this from a list of attributes
 (defun define-class (name size acc-spd leg-str mass accelk)
   (setf (getf *class-list* name)
 	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
@@ -67,9 +76,9 @@
 (defun project (x)
   (round (* x *zoom*)))
 
-(defun project-pt (x-y-lst)
-  (let ((x (car x-y-lst))
-	(y (cadr x-y-lst)))
+(defun project-pt (pt)
+  (let ((x (pt-x pt))
+	(y (pt-y pt)))
     (sdl:point :x (* x *zoom*)
 	       :y (* y *zoom*))))
 
@@ -94,11 +103,16 @@
       (draw-poly sdl-poly color))))
 
 (defun get-run (mortal)
+  "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"
   (case (attribute mortal :control)
-    (:ai (destructuring-bind ((x y) (target-x target-y))
-	     (list (attribute mortal :pos) (attribute *guy* :pos))
-	   (list 1 (atan (- target-y y)
-			 (- target-x x)))))
+    (:ai (let* ((pos (attribute mortal :pos))
+		(x (pt-x pos))
+		(y (pt-y pos))
+		(target-pt (attribute *guy* :pos))
+		(target-x (pt-x target-pt))
+		(target-y (pt-y target-pt)))
+	   (make-pt-pol 1 (atan (- target-y y)
+				(- target-x x)))))
     (:input (get-input-polar))))
 
 (load "src/uvp/physics.cl")
@@ -121,12 +135,12 @@
     ;; (sdl:draw-line-* 50 50
     ;; 		     (+ 50 (round (* 1 (car  contact))))
     ;; 		     (+ 50 (round (* 1 (cadr contact)))) :color sdl:*magenta*)
-    (sdl:draw-pixel-* (+ 50 (round (* 30 (car  target))))
-		      (+ 50 (round (* 30 (cadr target)))) :color sdl:*blue*)
-    (sdl:draw-pixel-* (+ 50 (round (* 02 (car  vel))))
-		      (+ 50 (round (* 02 (cadr vel)))) :color sdl:*green*)
-    (sdl:draw-pixel-* (+ 50 (round (* 1/2 (car  acc))))
-		      (+ 50 (round (* 1/2 (cadr acc)))) :color sdl:*red*)))
+    (sdl:draw-pixel-* (+ 50 (round (* 30 (pt-x target))))
+		      (+ 50 (round (* 30 (pt-y target)))) :color sdl:*blue*)
+    (sdl:draw-pixel-* (+ 50 (round (* 02 (pt-x vel))))
+		      (+ 50 (round (* 02 (pt-y vel)))) :color sdl:*green*)
+    (sdl:draw-pixel-* (+ 50 (round (* 1/2 (pt-x acc))))
+		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
   
 
 ;; The Top Gameloop
@@ -135,13 +149,14 @@
 	    internal-time-units-per-second))
   (define-class :fighter 1 20 40 2 4)
   (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
-  (setq *guy* (spawn-mortal :pos '(10 10)
+  (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
 	*baddies* ()
 	;*mapbounds* (generate-bounding-circles *map*)
 	)
-  
+  (defparameter *map* (generate-map *map-load*))
+
   (catch 'game-over
     (sdl:with-init ()
       ;; (sdl:window width height)
@@ -184,7 +199,7 @@
 	 (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
 		20)
-	     (push (spawn-mortal :pos (v+ '(51 51) (list (random 8.0) (random 8.0)))
+	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
 				 :class :baddie-swarmer
 				 :control :ai)
 		   *baddies*))
@@ -206,7 +221,7 @@
 	    internal-time-units-per-second))
   (define-class :fighter 1 20 40 2 4)
   (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
-  (setq *guy* (spawn-mortal :pos '(10 10)
+  (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
 	*baddies* ()

@@ -4,17 +4,19 @@
 	 (let ((state-lst)
 	       (dpos-lst))
 	   (dotimes (guy-ndx (length everyone))
-	     (destructuring-bind ((p0 v0)
-				  (dp dv))
-		 (list (nth guy-ndx initial-state)
-		       (or (nth guy-ndx in-deriv)
-			   '((0 0) (0 0))))
-	       (let ((p1 (v+ p0 (v* dt dp)))
-		     (v1 (v+ v0 (v* dt dv))))
-		 (setf state-lst (append state-lst
-					 (list (list p1 v1)))
-		       dpos-lst (append dpos-lst
-					(list v1))))))
+
+	     (destructuring-bind (p0 v0)
+		 (nth guy-ndx initial-state)
+	       (destructuring-bind (dp dv)
+		   (or (nth guy-ndx in-deriv)
+		       (list (make-pt) (make-pt)))
+		 (let ((p1 (v+ p0 (v* dt dp)))
+		       (v1 (v+ v0 (v* dt dv))))
+		   (setf state-lst (append state-lst
+					   (list (list p1 v1)))
+			 dpos-lst (append dpos-lst
+					  (list v1)))))))
+
 	   (let ((dvel-lst (acceleration everyone state-lst acc-pol-lst (+ t0 dt)))
 		 (out-deriv))
 	     (dotimes (ndx (length everyone) out-deriv)
