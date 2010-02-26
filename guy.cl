@@ -6,7 +6,7 @@
 (defvar *guy* nil)
 (defvar *class-list* nil)
 (defvar *zoom* 10)
-;; (defvar *time* '(0))
+(defvar *time* '(0))
 ;(defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
 (defvar *map-load* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
 (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
@@ -32,12 +32,36 @@
 ;; (defun spawn-particle (&key pos theta birth)
 ;;   (push (list pos theta birth) *particles*))
 
+(defstruct particle
+  type pos theta birth)
+
+(defun spawn-particle (guy type theta)
+  (let ((pos (attribute guy :pos))
+	(now (time-now)))
+    (make-particle :type type :pos pos :theta theta :birth now)))
+
+(defun advance-particle (particle dt)
+  (let* ((pos (particle-pos particle))
+	 (theta (particle-theta particle))
+	 (speed 100)
+	 (traveled (carterize (make-pt-pol (* speed dt) theta)))
+	 )
+    (setf (particle-pos particle) (v+ pos traveled))))
+
+
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
-  (defun input-key-event (&key key state)
+  (defun input-key-event (&key key state x y)
     (print (list key state))
     (case key
-      (1 (print 'FIRE))
+      (1 (print 'FIRE)
+	 (let ((aim-rel (v- (make-pt (unproject x) (unproject y))
+			    (attribute *guy* :pos))))
+	   (push (spawn-particle *guy*
+				  :arrow
+				  (azimuth aim-rel))
+		 *particles*))
+	 )
       (:sdl-key-q (throw 'game-over 'quit))
       (:sdl-key-e (setf up state))
       (:sdl-key-d (setf down state))
@@ -73,14 +97,17 @@
   (setf (getf *class-list* name)
 	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
 
+(defun unproject (x)
+  (/ x *zoom*))
+
 (defun project (x)
   (round (* x *zoom*)))
 
 (defun project-pt (pt)
   (let ((x (pt-x pt))
 	(y (pt-y pt)))
-    (sdl:point :x (* x *zoom*)
-	       :y (* y *zoom*))))
+    (sdl:point :x (project x)
+	       :y (project y))))
 
 (defun draw-guy (guy)
     (let* ((pos (attribute guy :pos))
@@ -102,6 +129,15 @@
 	(push (project-pt (nth pt-index poly)) sdl-poly))
       (draw-poly sdl-poly color))))
 
+(defun draw-particle (part)
+  (let* ((pos (particle-pos part))
+	 (theta (particle-theta part))
+	 (size 10)
+	 (pt1 (project-pt pos))
+	 (pt0 (project-pt (v- pos
+			      (carterize (make-pt-pol size theta))))))
+    (sdl-gfx:draw-line pt1 pt0 :color sdl:*white* :aa (getf *options* :aa))))
+
 (defun get-run (mortal)
   "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"
   (case (attribute mortal :control)
@@ -114,6 +150,11 @@
 	   (make-pt-pol 1 (atan (- target-y y)
 				(- target-x x)))))
     (:input (get-input-polar))))
+
+;; FIXME: make a type for 'pt'
+(defstruct state
+  (pos (make-pt) :type vec)
+  (vel (make-pt) :type vec))
 
 (load "src/uvp/physics.cl")
 (load "src/uvp/collision-spring.cl")
@@ -141,10 +182,19 @@
 		      (+ 50 (round (* 02 (pt-y vel)))) :color sdl:*green*)
     (sdl:draw-pixel-* (+ 50 (round (* 1/2 (pt-x acc))))
 		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
-  
+
+(defun time-now ()
+  (car *time*))
+(defun time-prv ()
+  (cdr *time*))
+(defun time-adv ()
+  (setf *time* (push (/ (get-internal-real-time)
+			internal-time-units-per-second)
+		     (car *time*))))
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
+  (time-adv)
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
   (define-class :fighter 1 20 40 2 4)
@@ -153,9 +203,12 @@
 			    :class :fighter
 			    :control :input)
 	*baddies* ()
-	;*mapbounds* (generate-bounding-circles *map*)
+					;*mapbounds* (generate-bounding-circles *map*)
 	)
+
+  
   (defparameter *map* (generate-map *map-load*))
+  (setq *particles* nil)
 
   (catch 'game-over
     (sdl:with-init ()
@@ -167,8 +220,8 @@
 			 (input-key-event :key key :state 1))
 	(:key-up-event (:key key)
 		       (input-key-event :key key :state 0))
-	(:mouse-button-down-event (:button button)
-			 (input-key-event :key button :state 1))
+	(:mouse-button-down-event (:button button :x x :y y)
+				  (input-key-event :key button :state 1 :x x :y y))
 	(:quit-event () t)
 	(:idle
 	 (sdl:with-timestep 
@@ -183,7 +236,7 @@
 		      (state (list pos vel))
 		      (acc-pol (attribute guy :acc-pol)))
 		 (setf state-lst (append state-lst (list state))
-		     acc-pol-lst (append acc-pol-lst (list acc-pol)))))
+		       acc-pol-lst (append acc-pol-lst (list acc-pol)))))
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt)))
@@ -196,7 +249,9 @@
 			 (get guy :vel-pol) vel-pol
 			 (get guy :acc-pol) acc-pol))))))
 
-	 (print (list 'fps (round (sdl:average-fps))))
+	 ;; everything but the physics
+	 (time-adv)
+	 ;; (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
 		20)
 	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
@@ -206,8 +261,10 @@
 	 (movement-debug *guy*)
 
 	 (draw-guy *guy*)
-	 (dotimes (baddie-index (length *baddies*))
-	   (draw-guy (nth baddie-index *baddies*)))
+	 (dolist (baddie *baddies*)
+	   (draw-guy baddie))
+	 (dolist (part *particles*)
+	   (draw-particle part))
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
@@ -227,7 +284,7 @@
 	*baddies* ()
 	;*mapbounds* (generate-bounding-circles *map*)
 	)
-  
+
   (let ((timestep 0)
 	(main 0))
     (catch 'game-over

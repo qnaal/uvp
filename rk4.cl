@@ -3,8 +3,9 @@
  (guysym ((dpx dpy) (dvx dvy)) ...)"
 	 (let ((state-lst)
 	       (dpos-lst))
-	   (dotimes (guy-ndx (length everyone))
 
+	   ;; generate statex from state0 and dt
+	   (dotimes (guy-ndx (length everyone))
 	     (destructuring-bind (p0 v0)
 		 (nth guy-ndx initial-state)
 	       (destructuring-bind (dp dv)
@@ -17,6 +18,7 @@
 			 dpos-lst (append dpos-lst
 					  (list v1)))))))
 
+	   ;; acceleration thinks statex is state1, as it well should
 	   (let ((dvel-lst (acceleration everyone state-lst acc-pol-lst (+ t0 dt)))
 		 (out-deriv))
 	     (dotimes (ndx (length everyone) out-deriv)
@@ -24,7 +26,7 @@
 							     (nth ndx dvel-lst))))))))))
   
   (defun integrate (everyone state0-lst acc0-pol-lst t0 dt)
-    "rk4-integrates the state to t0+dt"
+    "rk4-integrates the states from t0 to t0+dt"
     (let* ((a (evaluate-deriv everyone state0-lst acc0-pol-lst t0              0))
 	   (b (evaluate-deriv everyone state0-lst acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) a))
 	   (c (evaluate-deriv everyone state0-lst acc0-pol-lst (+ t0 (/ dt 2)) (/ dt 2) b))
@@ -45,16 +47,16 @@
 						    (polarize dv)
 						    ))))))))))
 
-(defun integrate-euler (everyone state0-lst acc0-pol-lst t0 dt)
-  (let ((dvel-lst (acceleration everyone state0-lst acc0-pol-lst (+ t0 dt)))
-	(output))
-    (dotimes (ndx (length everyone) output)
-      (destructuring-bind (dvel
-			   (pos0 vel0))
-	  (list (pop dvel-lst)
-		(nth ndx state0-lst))
-	(let ((dpos (v+ vel0 (v* dt dvel))))
-	  (setf output (append output (list (list (v+ pos0 (v* dt dpos))
-						  (v+ vel0 (v* dt dvel))
-						  (polarize dvel)
-						  )))))))))
+;; (defun integrate-euler (everyone state0-lst acc0-pol-lst t0 dt)
+;;   (let ((dvel-lst (acceleration everyone state0-lst acc0-pol-lst (+ t0 dt)))
+;; 	(output))
+;;     (dotimes (ndx (length everyone) output)
+;;       (destructuring-bind (dvel
+;; 			   (pos0 vel0))
+;; 	  (list (pop dvel-lst)
+;; 		(nth ndx state0-lst))
+;; 	(let ((dpos (v+ vel0 (v* dt dvel))))
+;; 	  (setf output (append output (list (list (v+ pos0 (v* dt dpos))
+;; 						  (v+ vel0 (v* dt dvel))
+;; 						  (polarize dvel)
+;; 						  )))))))))
