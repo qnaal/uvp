@@ -25,6 +25,7 @@
 	    (push (make-pt x y) poly-gen)))
 	(push poly-gen map-gen)))
     map-gen))
+(defvar *map* (generate-map *map-load*))
 
 (defun init-options ()
   (setf (getf *options* :aa) t))
@@ -86,6 +87,7 @@
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
     mortal))
 
+;; this would look good in a hashtable
 (defun attribute (mortal attribute)
   "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
   (or (get mortal attribute)
@@ -153,8 +155,10 @@
 
 ;; FIXME: make a type for 'pt'
 (defstruct state
-  (pos (make-pt) :type vec)
-  (vel (make-pt) :type vec))
+  ;; (pos (make-pt) :type vec)
+  ;; (vel (make-pt) :type vec))
+  (pos (make-pt))
+  (vel (make-pt)))
 
 (load "src/uvp/physics.cl")
 (load "src/uvp/collision-spring.cl")
@@ -197,8 +201,10 @@
   (time-adv)
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 20 40 2 4)
-  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
+  (define-class :fighter 1 20 80 2 4)
+  (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
+  ;; (define-class :fighter 1 20 40 2 4)
+  ;; (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
@@ -207,13 +213,13 @@
 	)
 
   
-  (defparameter *map* (generate-map *map-load*))
+  (setf *map* (generate-map *map-load*))
   (setq *particles* nil)
 
   (catch 'game-over
     (sdl:with-init ()
       ;; (sdl:window width height)
-      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
+      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 5 :max-dt 100))
       (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
 	(:key-down-event (:key key)
@@ -225,25 +231,34 @@
 	(:quit-event () t)
 	(:idle
 	 (sdl:with-timestep 
-	   (let ((state-lst)
-		 (acc-pol-lst)
+	   (let (;; (state-lst)
+		 ;; (acc-pol-lst)
 		 (everyone (append *baddies* (list *guy*)))
-		 (intgr-out))
+		 (intgr-out)		;how about 'let'ing this instead of 'setf'ing?
+		 )
+
+	     ;; FIXME: parhaps it makes more sense to do this *after*
+	     ;; integrating state1 ?
+
+	     ;; update everyone's state to state0
 	     (dolist (guy everyone)
 	       (let* ((pos (attribute guy :pos))
-		      (vel-pol (attribute guy :vel-pol))
-		      (vel (carterize vel-pol))
-		      (state (list pos vel))
-		      (acc-pol (attribute guy :acc-pol)))
-		 (setf state-lst (append state-lst (list state))
-		       acc-pol-lst (append acc-pol-lst (list acc-pol)))))
+	     	      (vel-pol (attribute guy :vel-pol))
+	     	      (vel (carterize vel-pol))
+	     	      (state0 (make-state :pos pos
+					  :vel vel))
+	     	      ;; (acc-pol (attribute guy :acc-pol))
+		      )
+	     	 (setf (get guy :state) state0)))
+	     
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt)))
-	       (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)))
-	     (dolist (guy everyone)
-	       (destructuring-bind (pos vel acc-pol)
-		   (pop intgr-out)
+	       ;; (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)))
+	       (setf intgr-out (integrate everyone t0 dt)))
+	     (dolist (stuff intgr-out)
+	       (destructuring-bind (guy pos vel acc-pol)
+		   stuff
 		 (let ((vel-pol (polarize vel)))
 		   (setf (get guy :pos) pos
 			 (get guy :vel-pol) vel-pol
@@ -251,9 +266,9 @@
 
 	 ;; everything but the physics
 	 (time-adv)
-	 ;; (print (list 'fps (round (sdl:average-fps))))
+	 (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
-		20)
+		60)
 	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
 				 :class :baddie-swarmer
 				 :control :ai)

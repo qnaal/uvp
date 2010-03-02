@@ -11,21 +11,24 @@
 ;;       (push '(1/2 0) accel-lst))))
 
 ;; called by 'evaluate-deriv' four times per physics-loop
-(defun acceleration (everyone state-lst acc-pol-lst t1)
+(defun acceleration (everyone state-indicator t1)
   "returns everyone's acceleration"
-  (declare (ignore t1 acc-pol-lst))
-  (let ((force-collision-plst (collision-resolve everyone
-						 (let ((pos-lst))
-						   (dolist (state state-lst (nreverse pos-lst))
-						     (push (car state) pos-lst)))
-						 (let ((vel-lst))
-						   (dolist (state state-lst (nreverse vel-lst))
-						     (push (cadr state) vel-lst)))
-						 *map*))
+  (declare (ignore t1))	;I might need t1 later, if writing down when things happen
+  (let ((force-collision-plst
+	 (let ((pos-lst)
+	       (vel-lst))
+	   (dolist (guy everyone)
+	     (let ((state (get guy state-indicator))) ;FIXME: LOLOLOLOLOLOLOLOLOLOLOLOLOL
+	       (push (state-pos state) pos-lst)
+	       (push (state-vel state) vel-lst)))
+	   (collision-resolve everyone
+	 		      (nreverse pos-lst)
+	 		      (nreverse vel-lst)
+	 		      *map*)))
 	(accel-lst))
-    (dotimes (i (length everyone) accel-lst)
-      (let* ((guy (nth i everyone))	;FIXME: this monstrosity has to be against some sort of rule
-	     (force-collision (or (getf force-collision-plst guy) (make-pt)))
+    (dolist (guy everyone)
+      ;;FIXME: this monstrosity has to be against some sort of rule
+      (let* ((force-collision (getf force-collision-plst guy (make-pt)))
 
 	     (mass (attribute guy :mass))
 	     (size (attribute guy :size))
@@ -37,9 +40,9 @@
 	     (run-r (pt-pol-r run))
 	     (run-theta (pt-pol-theta run))
 
-	     (state (nth i state-lst))
+	     (state (get guy state-indicator))
 	     ;; (pos (first state))
-	     (vel-current (second state))
+	     (vel-current (state-vel state))
 	     (target-r (* spd-max run-r))
 	     (vel-target (carterize (make-pt-pol target-r run-theta)))
 	     (vel-diff (v- vel-current vel-target))
@@ -51,16 +54,17 @@
 	     (force-input (carterize force-input-pol))
 	     (force-total (v+ force-input force-collision))
 	     (acc1 (v* (/ mass) force-total)))
-	(setf accel-lst (append accel-lst (list acc1)))))))
+	(push (list guy acc1) accel-lst)))
+    accel-lst))
 
-(defun test-acc (everyone times)
-  (let ((state-lst))
-    (dolist (guy everyone)
-      (let ((state (list (attribute guy :pos)
-			 (carterize (attribute guy :vel-pol)))))
-	(setf state-lst (append state-lst (list state)))))
-    (dotimes (i times)
-      (acceleration everyone state-lst () ()))))
+;; (defun test-acc (everyone times)
+;;   (let ((state-lst))
+;;     (dolist (guy everyone)
+;;       (let ((state (list (attribute guy :pos)
+;; 			 (carterize (attribute guy :vel-pol)))))
+;; 	(setf state-lst (append state-lst (list state)))))
+;;     (dotimes (i times)
+;;       (acceleration everyone state-lst () ()))))
 
 ;; (defun acceleration-dumb (everyone state-lst acc-pol-lst t1)
 ;;   "returns everyone's acceleration"
