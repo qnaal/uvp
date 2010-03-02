@@ -15,16 +15,7 @@
   "returns everyone's acceleration"
   (declare (ignore t1))	;I might need t1 later, if writing down when things happen
   (let ((force-collision-plst
-	 (let ((pos-lst)
-	       (vel-lst))
-	   (dolist (guy everyone)
-	     (let ((state (get guy state-indicator))) ;FIXME: LOLOLOLOLOLOLOLOLOLOLOLOLOL
-	       (push (state-pos state) pos-lst)
-	       (push (state-vel state) vel-lst)))
-	   (collision-resolve everyone
-	 		      (nreverse pos-lst)
-	 		      (nreverse vel-lst)
-	 		      *map*)))
+	 (collision-resolve everyone state-indicator *map*))
 	(accel-lst))
     (dolist (guy everyone)
       ;;FIXME: this monstrosity has to be against some sort of rule

@@ -1,4 +1,5 @@
-;(proclaim '(inline v- v+ make-pt pt-x pt-y pythag))
+(proclaim '(inline v- v+ make-pt pt-x pt-y))
+
 ;; (defun v+ (&rest vectors)
 ;;   "adds cartesian vectors"
 ;;   (apply 'mapcar '+ vectors))
@@ -116,6 +117,15 @@
 	(y2 (pt-y v2)))
     (+ (* x1 x2)
        (* y1 y2))))
+
+(defun cross (v1 v2)
+  "the area of the parallelogram formed between the two vectors"
+  (let ((x1 (pt-x v1))
+	(y1 (pt-y v1))
+	(x2 (pt-x v2))
+	(y2 (pt-y v2)))
+    (- (* x1 y2)
+       (* x2 y1))))
 
 (defun proj (v1 v2)
   "closest point on vec O->v2 to v1, in terms of the length of O->v2"
