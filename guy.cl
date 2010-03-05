@@ -81,7 +81,7 @@
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
-	  (get mortal :vel-pol) (make-pt-pol)
+	  (get mortal :vel) (make-pt)
 	  (get mortal :acc-pol) (make-pt-pol)
 	  (get mortal :control) control
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
@@ -166,7 +166,7 @@
 
 (defun movement-debug (mortal)
   "radar thing"
-  (let ((vel (carterize (attribute mortal :vel-pol)))
+  (let ((vel (attribute mortal :vel))
 	(acc (carterize (attribute mortal :acc-pol)))
 	;(contact (carterize *debug-contact*))
 	;; (contact *debug-contact*)
@@ -243,8 +243,7 @@
 	     ;; update everyone's state to state0
 	     (dolist (guy everyone)
 	       (let* ((pos (attribute guy :pos))
-	     	      (vel-pol (attribute guy :vel-pol))
-	     	      (vel (carterize vel-pol))
+	     	      (vel (attribute guy :vel))
 	     	      (state0 (make-state :pos pos
 					  :vel vel))
 	     	      ;; (acc-pol (attribute guy :acc-pol))
@@ -259,10 +258,9 @@
 	     (dolist (stuff intgr-out)
 	       (destructuring-bind (guy pos vel acc-pol)
 		   stuff
-		 (let ((vel-pol (polarize vel)))
 		   (setf (get guy :pos) pos
-			 (get guy :vel-pol) vel-pol
-			 (get guy :acc-pol) acc-pol))))))
+			 (get guy :vel) vel
+			 (get guy :acc-pol) acc-pol)))))
 
 	 ;; everything but the physics
 	 (time-adv)
