@@ -155,10 +155,8 @@
 
 ;; FIXME: make a type for 'pt'
 (defstruct state
-  ;; (pos (make-pt) :type vec)
-  ;; (vel (make-pt) :type vec))
-  (pos (make-pt))
-  (vel (make-pt)))
+  (pos (make-pt) :type pt)
+  (vel (make-pt) :type pt))
 
 (load "src/uvp/physics.cl")
 (load "src/uvp/collision-spring.cl")

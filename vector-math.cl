@@ -12,16 +12,13 @@
 
 (defstruct vec
   x y)
-
-;; (defstruct vec
-;;   x y)
-
 (defun make-pt (&optional (x 0) (y 0))
   (make-vec :x x :y y))
 (defun pt-x (pt)
   (vec-x pt))
 (defun pt-y (pt)
   (vec-y pt))
+(deftype pt () 'vec)
 
 ;; (defun make-pt (&optional (x 0) (y 0))
 ;;   (vector x y))
@@ -32,13 +29,13 @@
 
 (defstruct vec-pol
   r theta)
-
 (defun make-pt-pol (&optional (r 0) (theta 0))
   (make-vec-pol :r r :theta theta))
 (defun pt-pol-r (pt)
   (vec-pol-r pt))
 (defun pt-pol-theta (pt)
   (vec-pol-theta pt))
+(deftype pt-pol () 'vec-pol)
 
 ;; (defun make-pt-pol (&optional (r 0) (theta 0))
 ;;   (vector r theta))
