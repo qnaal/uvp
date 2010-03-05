@@ -23,14 +23,14 @@
 	 (let ((dvel-lst (acceleration everyone 'statex (+ t0 dt)))
 	       (next-dstate))
 	   (dolist (named-dvel dvel-lst)
-	     (destructuring-bind (guy dvel) named-dvel ;FIXME: make a better structure for this
+	     (destructuring-bind (guy dvel) named-dvel ;TODO: make a better structure for this
 	       (let* ((state0 (get guy state0-indicator))
 		      (dstate (get guy prev-dstate (make-state)))
 		      (v0 (state-vel state0))
 		      (dv (state-vel dstate))
 		      (dpos (v+ v0 (v* dt dv))) ;same as v1 from above
 		      )
-		 (setf (getf next-dstate guy) ;FIXME: using a plist here is slow and useless
+		 (setf (getf next-dstate guy) ;TODO: using a plist here is slow and useless
 		       (make-state :pos dpos
 				   :vel dvel)))))
 	   next-dstate)))

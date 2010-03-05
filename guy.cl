@@ -208,17 +208,13 @@
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
-	*baddies* ()
-					;*mapbounds* (generate-bounding-circles *map*)
-	)
+	*baddies* ())
 
-  
   (setf *map* (generate-map *map-load*))
   (setq *particles* nil)
 
   (catch 'game-over
     (sdl:with-init ()
-      ;; (sdl:window width height)
       (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 5 :max-dt 100))
       (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
@@ -231,13 +227,9 @@
 	(:quit-event () t)
 	(:idle
 	 (sdl:with-timestep 
-	   (let (;; (state-lst)
-		 ;; (acc-pol-lst)
-		 (everyone (append *baddies* (list *guy*)))
-		 (intgr-out)		;how about 'let'ing this instead of 'setf'ing?
-		 )
+	   (let ((everyone (append *baddies* (list *guy*)))) ;TODO: make a global vector for 'everyone's symbols
 
-	     ;; FIXME: parhaps it makes more sense to do this *after*
+	     ;; TODO: parhaps it makes more sense to do this *after*
 	     ;; integrating state1 ?
 
 	     ;; update everyone's state to state0
@@ -245,22 +237,20 @@
 	       (let* ((pos (attribute guy :pos))
 	     	      (vel (attribute guy :vel))
 	     	      (state0 (make-state :pos pos
-					  :vel vel))
-	     	      ;; (acc-pol (attribute guy :acc-pol))
-		      )
+					  :vel vel)))
 	     	 (setf (get guy :state) state0)))
-	     
+
+	     ;; integrate to state1, then move things
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
-		    (t0 (- t1 dt)))
-	       ;; (setf intgr-out (integrate everyone state-lst acc-pol-lst t0 dt)))
-	       (setf intgr-out (integrate everyone t0 dt)))
-	     (dolist (stuff intgr-out)
-	       (destructuring-bind (guy pos vel acc-pol)
-		   stuff
+		    (t0 (- t1 dt))
+		    (intgr-out (integrate everyone t0 dt)))
+	       (dolist (stuff intgr-out)
+		 (destructuring-bind (guy pos vel acc-pol)
+		     stuff
 		   (setf (get guy :pos) pos
 			 (get guy :vel) vel
-			 (get guy :acc-pol) acc-pol)))))
+			 (get guy :acc-pol) acc-pol))))))
 
 	 ;; everything but the physics
 	 (time-adv)
@@ -294,9 +284,7 @@
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
-	*baddies* ()
-	;*mapbounds* (generate-bounding-circles *map*)
-	)
+	*baddies* ())
 
   (let ((timestep 0)
 	(main 0))
@@ -316,8 +304,6 @@
 
 	     (incf timestep)
 	     (print (list 'ts timestep)))
-
-
 
 	   (sleep .1)
 	   (incf main)

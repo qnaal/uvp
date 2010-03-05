@@ -75,7 +75,7 @@
 	     (pos (state-pos (get guy state-indicator)))
 	     (size (attribute guy :size)))
 	;; collisions with walls
-	(dolist (poly obstacles)	;FIXME: only generate one contact if the two collisions are from the same point
+	(dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
 	  (dotimes (line-ndx (1- (length poly)))
 	    (let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
 							(nth (1+ line-ndx) poly)
@@ -128,7 +128,7 @@
 	    (thing (contact-thing contact))
 	    (hit (contact-hit contact)))
 	;; calculate a force for each contact
-	(let* ((vel-diff (if (get hit state-indicator) ;FIXME: do this less dumb
+	(let* ((vel-diff (if (get hit state-indicator) ;TODO: do this less dumb
 	       		     (v- (state-vel (get thing state-indicator))
 				 (state-vel (get hit state-indicator)))
 	       		     (state-vel (get thing state-indicator))))
@@ -157,5 +157,5 @@
     ;; (if (getf force-plst *guy*)		;TEST
     ;; 	(setf *debug-contact* (getf force-plst *guy*)))
 
-    ;; FIXME: return something other than a plist
+    ;; TODO: return something other than a plist
     force-plst))
