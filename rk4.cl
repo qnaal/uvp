@@ -54,7 +54,7 @@
 			  output)))))))))))
 
 
-(defun integrate-euler (state0-lst t0 dt)
+(defun integrate (state0-lst t0 dt)
   "euler-integrates from state0 to state1"
   (let ((dvel-lst (acceleration state0-lst (+ t0 dt)))
 	(state1-lst))

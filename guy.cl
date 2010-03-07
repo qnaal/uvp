@@ -214,7 +214,7 @@
 
   (catch 'game-over
     (sdl:with-init ()
-      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 5 :max-dt 100))
+      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
       (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
 	(:key-down-event (:key key)
@@ -251,7 +251,7 @@
 	 (time-adv)
 	 (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
-		60)
+		20)
 	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
 				 :class :baddie-swarmer
 				 :control :ai)
