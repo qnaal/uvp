@@ -10,6 +10,7 @@
 ;(defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
 (defvar *map-load* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
 (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
+;; (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (20000 100))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
@@ -153,10 +154,10 @@
 				(- target-x x)))))
     (:input (get-input-polar))))
 
-;; FIXME: make a type for 'pt'
 (defstruct state
-  (pos (make-pt) :type pt)
-  (vel (make-pt) :type pt))
+  (symbol 0 :type symbol)
+  (pos () :type pt)
+  (vel () :type pt))
 
 (load "src/uvp/physics.cl")
 (load "src/uvp/collision-spring.cl")
@@ -224,31 +225,27 @@
 				  (input-key-event :key button :state 1 :x x :y y))
 	(:quit-event () t)
 	(:idle
+
 	 (sdl:with-timestep 
-	   (let ((everyone (append *baddies* (list *guy*)))) ;TODO: make a global vector for 'everyone's symbols
-
-	     ;; TODO: parhaps it makes more sense to do this *after*
-	     ;; integrating state1 ?
-
-	     ;; update everyone's state to state0
-	     (dolist (guy everyone)
-	       (let* ((pos (attribute guy :pos))
-	     	      (vel (attribute guy :vel))
-	     	      (state0 (make-state :pos pos
-					  :vel vel)))
-	     	 (setf (get guy :state) state0)))
-
+	   (let* ((everyone (append *baddies* (list *guy*))) ;TODO: make a global vector for 'everyone's symbols
+		  (state0-lst))
+	     ;; generate states
+	     (dolist (thing everyone)
+	       (let ((pos (attribute thing :pos))
+		     (vel (attribute thing :vel)))
+		 (push (make-state :symbol thing
+				   :pos pos
+				   :vel vel)
+		       state0-lst)))
 	     ;; integrate to state1, then move things
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt))
-		    (intgr-out (integrate everyone t0 dt)))
-	       (dolist (stuff intgr-out)
-		 (destructuring-bind (guy pos vel acc-pol)
-		     stuff
-		   (setf (get guy :pos) pos
-			 (get guy :vel) vel
-			 (get guy :acc-pol) acc-pol))))))
+		    (state1-lst (integrate state0-lst t0 dt)))
+	       (dolist (state1 state1-lst)
+		 (with-slots ((thing symbol) pos vel) state1
+		   (setf (get thing :pos) pos
+			 (get thing :vel) vel))))))
 
 	 ;; everything but the physics
 	 (time-adv)

@@ -1,12 +1,11 @@
-;contact: (depth normal guy1 [guy2|:wall])
-;acontact: (depth normal) "anonymous contact"
 ;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
-;; FIXME: the above information might not actually be completely correct
 
 (defstruct contact
   depth
   normal				;the direction of the collision
-  thing					;the thing that hit something
+  (thing () :type symbol)		;the thing that hit something
+  (thing-pos () :type pt)
+  (thing-vel () :type pt)
   (hit () :type symbol)			;the something that thing hit
   hit-pos
   (hit-vel () :type pt))
@@ -43,7 +42,6 @@
       (make-pt-pol (- min-dist d)
 		   (atan y x)))))
 
-
 ;; (defun collision-circle-circle-minsqrt (circle1-pt circle2-pt min-dist) ;only sqrt if required, slower for some reason
 ;;   (let* ((v-diff (v- circle2-pt circle1-pt))
 ;; 	 (dist-squared (+ (expt (pt-x v-diff) 2)
@@ -51,7 +49,6 @@
 ;;     (when (< dist-squared (expt min-dist 2))
 ;;       (make-pt-pol (- min-dist (sqrt dist-squared))
 ;; 		   (azimuth v-diff)))))
-
 
 (defun collision-line-line (pt-a1 pt-a2 pt-b1 pt-b2) ;haven't tested this yet, it should work
   "returns where along line A they intersect, in terms of the length of line A"
@@ -69,98 +66,86 @@
 		 (< 0 bhit 1))
 	ahit))))
 
-(defun generate-contacts (everyone state-indicator obstacles)
+
+(defun generate-contacts (state0-lst obstacles)
   "return any contacts between 'everyone' and 'obstacles'/eachother"
   ;; (declare (inline collision-circle-circle))
   (let ((contact-lst))
-    (dotimes (guy-ndx (length everyone)) ;if I do this with 'do' I won't have to count up to 'guy'
-      (let* ((guy (nth guy-ndx everyone))
-	     (pos (state-pos (get guy state-indicator)))
-	     (vel (state-vel (get guy state-indicator)))
-	     (size (attribute guy :size)))
-	;; collisions with walls
-	(dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
-	  (dotimes (line-ndx (1- (length poly)))
-	    (let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
-							(nth (1+ line-ndx) poly)
-							pos size
-							)))
-	      (when line-acontact
-		(let ((depth (pt-pol-r line-acontact))
-		      (normal (pt-pol-theta line-acontact)))
+    (dotimes (thing-ndx (length state0-lst))
+      (let ((state (elt state0-lst thing-ndx)))
+	(with-slots ((thing symbol) pos vel) state
+	  (let ((size (attribute thing :size)))
+	    ;; collisions with walls
+	    (dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
+	      (dotimes (line-ndx (1- (length poly)))
+		(let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
+							    (nth (1+ line-ndx) poly)
+							    pos size
+							    )))
+		  (when line-acontact
+		    (let ((depth (pt-pol-r line-acontact))
+			  (normal (pt-pol-theta line-acontact)))
 					;(setf *debug-contact* line-acontact) ;TEST
-		  (push (make-contact :depth depth
-				      :normal normal
-				      :thing guy
-				      :hit :wall
-				      :hit-vel (make-pt))
-			contact-lst))))))
-	;; collisions with other guys, do each pair once
-	(dotimes (o-guy-ndx guy-ndx)
-	  (let* ((other-guy (nth o-guy-ndx everyone))
-		 (o-pos (state-pos (get other-guy state-indicator)))
-		 (o-vel (state-vel (get other-guy state-indicator)))
-		 (o-size (attribute other-guy :size))
-		 (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
-	    (when melee-acontact
-	      (let ((depth (pt-pol-r melee-acontact))
-		    (normal (pt-pol-theta melee-acontact)))
-		(push (make-contact :depth depth
-				    :normal normal
-				    :thing guy
-				    :hit other-guy
-				    :hit-pos o-pos
-				    :hit-vel o-vel)
-		      contact-lst)
-		(push (make-contact :depth depth
-				    :normal (+ pi normal)
-				    :thing other-guy
-				    :hit guy
-				    :hit-pos pos
-				    :hit-vel vel)
-		      contact-lst)))))
-	;; particle collisions go here
-	))
+		      (push (make-contact :depth depth
+					  :normal normal
+					  :thing thing
+					  :thing-pos pos
+					  :thing-vel vel
+					  :hit :wall
+					  :hit-vel (make-pt))
+			    contact-lst))))))
+	    ;; collisions with other guys, do each pair once
+	    (dotimes (o-thing-ndx thing-ndx)
+	      (let* ((other-state (elt state0-lst o-thing-ndx)))
+		(with-slots ((o-thing symbol) (o-pos pos) (o-vel vel)) other-state
+		  (let* ((o-size (attribute o-thing :size))
+			 (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
+		    (when melee-acontact
+		      (let ((depth (pt-pol-r melee-acontact))
+			    (normal (pt-pol-theta melee-acontact)))
+			(push (make-contact :depth depth
+					    :normal normal
+					    :thing thing
+					    :thing-pos pos
+					    :thing-vel vel
+					    :hit o-thing
+					    :hit-pos o-pos
+					    :hit-vel o-vel)
+			      contact-lst)))))))
+	    ;; particle collisions go here
+	    ))))
     contact-lst))
 
-
-;;outputs a plist:
-;(guy force ...)
-(defun collision-resolve (everyone state-indicator obstacles)
-  "returns a plist of the required force for every guy"
-  (let ((contact-lst (generate-contacts everyone state-indicator obstacles))
-	(guy-force-lst)
-	(force-plst)) ;plist of the combined collision force, for each guy
-
+(defun collision-resolve (state0-lst obstacles)
+  "returns the forces from collisions"
+  (let ((contact-lst (generate-contacts state0-lst obstacles))
+	(forces-plist))
     (dolist (contact contact-lst)
-      (with-slots (depth normal thing hit hit-vel) contact
+      (with-slots (depth normal thing thing-vel hit hit-vel) contact
 	;; calculate a force for each contact
-	(let* ((vel-diff (v- (state-vel (get thing state-indicator))
-			     hit-vel))
+	(let* ((vel-diff (v- thing-vel
+			     (or hit-vel (make-pt))))
 	       (vel-diff-component (component vel-diff normal))
-
 	       ;; this is where I make different surfaces 'feel' different to smack into
 	       (force-r (let* ((thing-type :guy)
-	       		       (hit-type (if (eq hit :wall)
+			       (hit-type (if (eq hit :wall)
 					     :wall
 					     :guy)))
-	       		  (destructuring-bind (k c) (getf (getf *collision-flavor* thing-type) hit-type)
-	       		    (spring k depth vel-diff-component c))))
-	       )
+			  (destructuring-bind (k c) (getf (getf *collision-flavor* thing-type) hit-type)
+			    (spring k depth vel-diff-component c)))))
 	  ;; Displacement depth is positive, so the spring force ends
 	  ;; up being negative, and we end up not having to reverse
 	  ;; the contact normal before using it again!  Neat, huh?
-	  (push (list thing (carterize (make-pt-pol force-r normal))) guy-force-lst))))
-    
-    ;; collect forces into one aggregate force for each guy
-    (dolist (guy-force guy-force-lst)
-      (destructuring-bind (guy force) guy-force
-	(let ((oldforce (getf force-plst guy)))
-	  (if oldforce
-	      (setf (getf force-plst guy) (v+ force oldforce))
-	      (setf (getf force-plst guy) force)))))
-    ;; (if (getf force-plst *guy*)		;TEST
-    ;; 	(setf *debug-contact* (getf force-plst *guy*)))
-
-    ;; TODO: return something other than a plist
-    force-plst))
+	  (push (carterize (make-pt-pol force-r normal))
+		(getf forces-plist thing))
+	  (when hit-vel			;every action is coupled with an equal and opposite reaction
+	    (push (carterize (make-pt-pol force-r (+ pi normal)))
+		  (getf forces-plist hit))))))
+    ;; collect forces into one aggregate force
+    (when forces-plist
+      (do ((i 0 (+ 2 i)))		  ;FIXME: I don't like this being here
+	  ((> i (1- (length forces-plist))))
+	(let ((forces (nth (1+ i) forces-plist)))
+	  (setf (nth (1+ i) forces-plist)
+		(apply 'v+ forces)))))
+    forces-plist))

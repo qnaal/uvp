@@ -1,86 +1,68 @@
-(flet ((evaluate-deriv (everyone state0-indicator t0 dt &optional prev-dstate)
-	 "returns a plist of derivatives in the form
- (guysym ((dpx dpy) (dvx dvy)) ...)"
-	 ;; (let ((state-lst)
-	 ;;       (dpos-lst))
+(flet ((evaluate-deriv (state0-lst t0 dt &optional prev-dstate) ;perhaps return a hashtable of derivs?
+	 "returns the derivatives of the states over dt"
+	 (let ((statex-lst))
+	   ;; build statex-lst
+	   (dolist (state0 state0-lst)
+	     (with-slots ((thing symbol) (p0 pos) (v0 vel)) state0
+	       (let ((dstate (if prev-dstate
+				 (find thing prev-dstate :key #'state-symbol)
+				 (make-state :symbol t
+					     :pos (make-pt)
+					     :vel (make-pt)))))
+		 (with-slots ((dp pos) (dv vel)) dstate
+		   (let ((p1 (v+ p0 (v* dt dp)))
+			 (v1 (v+ v0 (v* dt dv))))
+		     (let ((statex (make-state :symbol thing :pos p1 :vel v1)))
+		       (push statex statex-lst)))))))
+	   ;; acceleration thinks statex is state1, as it well should
+	   (let ((dvel-lst (acceleration statex-lst (+ t0 dt)))
+		 (next-dstate))
+	     (dolist (state0 state0-lst)
+	       (with-slots ((thing symbol) (p0 pos) (v0 vel)) state0
+		 (let ((dstate (if prev-dstate
+				   (find thing prev-dstate :key #'state-symbol)
+				   (make-state :symbol t
+					       :pos (make-pt)
+					       :vel (make-pt)))))
+		   (with-slots ((dp pos)) dstate
+		     (let ((out-dpos (v+ v0 (v* dt dp))) ;same as v1 from above
+			   (out-dvel (cdr (assoc thing dvel-lst))))
+		       (push (make-state :symbol thing
+					 :pos out-dpos
+					 :vel out-dvel)
+			     next-dstate))))))
+	     next-dstate))))
 
-	 ;; generate statex from state0 and dt
-	 (dolist (guy everyone)
-	   (let* ((state0 (get guy state0-indicator))
-		  (p0 (state-pos state0))
-		  (v0 (state-vel state0))
-		  (dstate (getf prev-dstate guy (make-state)))
-		  (dp (state-pos dstate))
-		  (dv (state-vel dstate)))
-	     (let ((p1 (v+ p0 (v* dt dp)))
-		   (v1 (v+ v0 (v* dt dv))))
-	       
-	       (let ((statex (make-state :pos p1 :vel v1)))
-		 (setf (get guy 'statex) statex)
-		 ))))
-
-	 ;; acceleration thinks statex is state1, as it well should
-	 (let ((dvel-lst (acceleration everyone 'statex (+ t0 dt)))
-	       (next-dstate))
-	   (dolist (named-dvel dvel-lst)
-	     (destructuring-bind (guy dvel) named-dvel ;TODO: make a better structure for this
-	       (let* ((state0 (get guy state0-indicator))
-		      (dstate (get guy prev-dstate (make-state)))
-		      (v0 (state-vel state0))
-		      (dv (state-vel dstate))
-		      (dpos (v+ v0 (v* dt dv))) ;same as v1 from above
-		      )
-		 (setf (getf next-dstate guy) ;TODO: using a plist here is slow and useless
-		       (make-state :pos dpos
-				   :vel dvel)))))
-	   next-dstate)))
-
-  (defun integrate (everyone t0 dt)
+  (defun integrate (state0-lst t0 dt)
     "rk4-integrates the states from t0 to t0+dt"
-    (let* ((a (evaluate-deriv everyone :state t0              0))
-	   (b (evaluate-deriv everyone :state (+ t0 (/ dt 2)) (/ dt 2) a))
-	   (c (evaluate-deriv everyone :state (+ t0 (/ dt 2)) (/ dt 2) b))
-	   (d (evaluate-deriv everyone :state (+ t0 dt)       dt       c))
+    (let* ((a (evaluate-deriv state0-lst t0              0))
+	   (b (evaluate-deriv state0-lst (+ t0 (/ dt 2)) (/ dt 2) a))
+	   (c (evaluate-deriv state0-lst (+ t0 (/ dt 2)) (/ dt 2) b))
+	   (d (evaluate-deriv state0-lst (+ t0 dt)       dt       c))
 	   (output))
-
-      (dolist (guy everyone output)
-
-	(let* (
-	       (state0 (get guy :state))
-	       (pos (state-pos state0))
-	       (vel (state-vel state0))
-	       (dstate-a (getf a guy))
-	       (dp1 (state-pos dstate-a))
-	       (dv1 (state-vel dstate-a))
-	       (dstate-b (getf b guy))
-	       (dp2 (state-pos dstate-b))
-	       (dv2 (state-vel dstate-b))
-	       (dstate-c (getf c guy))
-	       (dp3 (state-pos dstate-c))
-	       (dv3 (state-vel dstate-c))
-	       (dstate-d (getf d guy))
-	       (dp4 (state-pos dstate-d))
-	       (dv4 (state-vel dstate-d)))
-	  (let ((dp (v* 1/6 (v+ dp1 (v* 2 (v+ dp2 dp3)) dp4)))
-		(dv (v* 1/6 (v+ dv1 (v* 2 (v+ dv2 dv3)) dv4))))
-	    (push (list guy 
-			(v+ pos (v* dt dp))
-			(v+ vel (v* dt dv))
-			(polarize dv))
-		  output)))))))
+      (dolist (state0 state0-lst output)
+	(with-slots ((thing symbol) (pos0 pos) (vel0 vel)) state0
+	  (with-slots ((dp1 pos) (dv1 vel)) (find thing a :key #'state-symbol)
+	    (with-slots ((dp2 pos) (dv2 vel)) (find thing b :key #'state-symbol)
+	      (with-slots ((dp3 pos) (dv3 vel)) (find thing c :key #'state-symbol)
+		(with-slots ((dp4 pos) (dv4 vel)) (find thing d :key #'state-symbol) ;christ above
+		  (let ((dp (v* 1/6 (v+ dp1 (v* 2 (v+ dp2 dp3)) dp4)))
+			(dv (v* 1/6 (v+ dv1 (v* 2 (v+ dv2 dv3)) dv4))))
+		    (push (make-state :symbol thing
+				      :pos (v+ pos0 (v* dt dp))
+				      :vel (v+ vel0 (v* dt dv)))
+			  output)))))))))))
 
 
-(defun integrate (everyone t0 dt)
-  (let ((dvel-lst (acceleration everyone :state (+ t0 dt)))
-	(output))
-    (dolist (named-dvel dvel-lst output)
-      (destructuring-bind (guy dvel) named-dvel
-	(let* ((state0 (get guy :state))
-	       (pos0 (state-pos state0))
-	       (vel0 (state-vel state0))
+(defun integrate-euler (state0-lst t0 dt)
+  "euler-integrates from state0 to state1"
+  (let ((dvel-lst (acceleration state0-lst (+ t0 dt)))
+	(state1-lst))
+    (dolist (state0 state0-lst state1-lst)
+      (with-slots ((thing symbol) (pos0 pos) (vel0 vel)) state0
+	(let* ((dvel (cdr (assoc thing dvel-lst)))
 	       (dpos (v+ vel0 (v* dt dvel))))
-	  (push (list guy
-		      (v+ pos0 (v* dt dpos))
-		      (v+ vel0 (v* dt dvel))
-		      (polarize dvel))
-		output))))))
+	  (push (make-state :symbol thing
+			    :pos (v+ pos0 (v* dt dpos))
+			    :vel (v+ vel0 (v* dt dvel)))
+		state1-lst))))))
