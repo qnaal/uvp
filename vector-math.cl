@@ -102,10 +102,6 @@
 ;;			       theta))
 ;;	    rotated))))
 
-(defun component (pt theta)
-  (dot pt (make-pt (cos theta)
-		   (sin theta))))
-
 (defun dot (v1 v2)
   "returns the product of the lengths of the two vectors and the cosine of the angle between them"
   (let ((x1 (pt-x v1))
@@ -114,6 +110,10 @@
 	(y2 (pt-y v2)))
     (+ (* x1 x2)
        (* y1 y2))))
+
+(defun component (pt theta)
+  (dot pt (make-pt (cos theta)
+		   (sin theta))))
 
 (defun cross (v1 v2)
   "the area of the parallelogram formed between the two vectors"

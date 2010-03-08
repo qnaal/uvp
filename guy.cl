@@ -17,22 +17,21 @@
 
 (load "src/uvp/vector-math.cl")
 
-(defun generate-map (map)
-  (let ((map-gen))
-    (dolist (poly map)
-      (let ((poly-gen))
-	(dolist (lst-pt poly)
-	  (destructuring-bind (x y) lst-pt
-	    (push (make-pt x y) poly-gen)))
-	(push poly-gen map-gen)))
-    map-gen))
-(defvar *map* (generate-map *map-load*))
+(defun time-now ()
+  (car *time*))
+(defun time-prv ()
+  (cdr *time*))
+(defun time-adv ()
+  (setf *time* (push (/ (get-internal-real-time)
+			internal-time-units-per-second)
+		     (car *time*))))
 
-(defun init-options ()
-  (setf (getf *options* :aa) t))
-
-;; (defun spawn-particle (&key pos theta birth)
-;;   (push (list pos theta birth) *particles*))
+;; this would look good in a hashtable
+(defun attribute (mortal attribute)
+  "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
+  (or (get mortal attribute)
+      (getf (getf *class-list* (get mortal :class))
+	   attribute)))
 
 (defstruct particle
   type pos theta birth)
@@ -50,6 +49,21 @@
 	 )
     (setf (particle-pos particle) (v+ pos traveled))))
 
+(load "src/uvp/graphics.cl")
+
+(defun generate-map (map)
+  (let ((map-gen))
+    (dolist (poly map)
+      (let ((poly-gen))
+	(dolist (lst-pt poly)
+	  (destructuring-bind (x y) lst-pt
+	    (push (make-pt x y) poly-gen)))
+	(push poly-gen map-gen)))
+    map-gen))
+(defvar *map* (generate-map *map-load*))
+
+(defun init-options ()
+  (setf (getf *options* :aa) t))
 
 ;; This will require some fiddling for joystick input, but not much
 (let ((up 0) (down 0) (left 0) (right 0))
@@ -88,58 +102,10 @@
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
     mortal))
 
-;; this would look good in a hashtable
-(defun attribute (mortal attribute)
-  "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
-  (or (get mortal attribute)
-      (getf (getf *class-list* (get mortal :class))
-	   attribute)))
-
 ;; should macro this from a list of attributes
 (defun define-class (name size acc-spd leg-str mass accelk)
   (setf (getf *class-list* name)
 	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
-
-(defun unproject (x)
-  (/ x *zoom*))
-
-(defun project (x)
-  (round (* x *zoom*)))
-
-(defun project-pt (pt)
-  (let ((x (pt-x pt))
-	(y (pt-y pt)))
-    (sdl:point :x (project x)
-	       :y (project y))))
-
-(defun draw-guy (guy)
-    (let* ((pos (attribute guy :pos))
-	   (pt (project-pt pos))
-	   (r (project (attribute guy :size))))
-      (sdl-gfx:draw-circle pt r :color sdl:*white* :aa (getf *options* :aa))))
-(defun draw-poly (poly color)
-					;(sdl-gfx:draw-shape poly :color color :aa (getf *options* :aa))
-  ;;FIXME: temporary workaround because draw-shape inexplicably doesn't do antialiasing
-  (do ((line-index 0 (+ 1 line-index))) ((= line-index (1- (length poly))))
-    (let ((p1 (nth     line-index  poly))
-	  (p2 (nth (1+ line-index) poly)))
-      (sdl-gfx:draw-line p1 p2 :color color :aa (getf *options* :aa)))))
-(defun draw-map (map color)
-  (dotimes (poly-index (length map))
-    (let ((poly (nth poly-index map))
-	  (sdl-poly))
-      (dotimes (pt-index (length poly))
-	(push (project-pt (nth pt-index poly)) sdl-poly))
-      (draw-poly sdl-poly color))))
-
-(defun draw-particle (part)
-  (let* ((pos (particle-pos part))
-	 (theta (particle-theta part))
-	 (size 10)
-	 (pt1 (project-pt pos))
-	 (pt0 (project-pt (v- pos
-			      (carterize (make-pt-pol size theta))))))
-    (sdl-gfx:draw-line pt1 pt0 :color sdl:*white* :aa (getf *options* :aa))))
 
 (defun get-run (mortal)
   "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"
@@ -159,15 +125,15 @@
   (pos () :type pt)
   (vel () :type pt))
 
+(load "src/uvp/collision-spring.cl")	;FIXME: figure out how to make this work
 (load "src/uvp/physics.cl")
-(load "src/uvp/collision-spring.cl")
 (load "src/uvp/rk4.cl")
 
 (defun movement-debug (mortal)
   "radar thing"
   (let ((vel (attribute mortal :vel))
 	(acc (carterize (attribute mortal :acc-pol)))
-	;(contact (carterize *debug-contact*))
+					;(contact (carterize *debug-contact*))
 	;; (contact *debug-contact*)
 	;; (contact-min (carterize (list 20 (cadr (polarize *debug-contact*)))))
 	(target (carterize (get-run mortal))))
@@ -185,15 +151,6 @@
 		      (+ 50 (round (* 02 (pt-y vel)))) :color sdl:*green*)
     (sdl:draw-pixel-* (+ 50 (round (* 1/2 (pt-x acc))))
 		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
-
-(defun time-now ()
-  (car *time*))
-(defun time-prv ()
-  (cdr *time*))
-(defun time-adv ()
-  (setf *time* (push (/ (get-internal-real-time)
-			internal-time-units-per-second)
-		     (car *time*))))
 
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
@@ -214,7 +171,7 @@
 
   (catch 'game-over
     (sdl:with-init ()
-      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 10 :max-dt 100))
+      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 5 :max-dt 100))
       (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
 	(:key-down-event (:key key)

@@ -1,5 +1,9 @@
-;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
+(defun spring (k x &optional (v 0) (c 1))
+  "returnes force for a damped spring-mass system"
+  (- (* (- k) x)
+     (* c v)))
 
+;;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
 (defstruct contact
   depth
   normal				;the direction of the collision
@@ -10,14 +14,6 @@
   hit-pos
   (hit-vel () :type pt))
 
-(defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
-  "return a contact if the circle collides with the line"
-  (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
-	 (circ (v- circle-pt line-pt1))
-	 (col-pt (v* (clamp (proj circ line) 0 1) ;the closest point on the line to the circle
-		     line)))
-    (collision-circle-circle circ col-pt circle-r)))
-		   
 (declaim (ftype (function (pt pt real) (or null pt-pol)) collision-circle-circle))
 ;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist)
 ;;   (declare (optimize speed (safety 0)))
@@ -49,6 +45,14 @@
 ;;     (when (< dist-squared (expt min-dist 2))
 ;;       (make-pt-pol (- min-dist (sqrt dist-squared))
 ;; 		   (azimuth v-diff)))))
+
+(defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
+  "return a contact if the circle collides with the line"
+  (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
+	 (circ (v- circle-pt line-pt1))
+	 (col-pt (v* (clamp (proj circ line) 0 1) ;the closest point on the line to the circle
+		     line)))
+    (collision-circle-circle circ col-pt circle-r)))
 
 (defun collision-line-line (pt-a1 pt-a2 pt-b1 pt-b2) ;haven't tested this yet, it should work
   "returns where along line A they intersect, in terms of the length of line A"
