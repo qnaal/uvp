@@ -15,7 +15,7 @@
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
 
-(load "src/uvp/vector-math.cl")
+(load "vector-math.cl")
 
 (defun time-now ()
   (car *time*))
@@ -49,7 +49,7 @@
 	 )
     (setf (particle-pos particle) (v+ pos traveled))))
 
-(load "src/uvp/graphics.cl")
+(load "graphics.cl")
 
 (defun generate-map (map)
   (let ((map-gen))
@@ -125,9 +125,9 @@
   (pos () :type pt)
   (vel () :type pt))
 
-(load "src/uvp/collision-spring.cl")	;FIXME: figure out how to make this work
-(load "src/uvp/physics.cl")
-(load "src/uvp/rk4.cl")
+(load "collision-spring.cl")
+(load "physics.cl")
+(load "rk4.cl")
 
 (defun movement-debug (mortal)
   "radar thing"
