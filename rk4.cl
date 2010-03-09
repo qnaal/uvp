@@ -33,7 +33,7 @@
 			     next-dstate))))))
 	     next-dstate))))
 
-  (defun integrate (state0-lst t0 dt)
+  (defun integrate-rk4 (state0-lst t0 dt)
     "rk4-integrates the states from t0 to t0+dt"
     (let* ((a (evaluate-deriv state0-lst t0              0))
 	   (b (evaluate-deriv state0-lst (+ t0 (/ dt 2)) (/ dt 2) a))
@@ -54,7 +54,7 @@
 			  output)))))))))))
 
 
-(defun integrate (state0-lst t0 dt)
+(defun integrate-euler (state0-lst t0 dt)
   "euler-integrates from state0 to state1"
   (let ((dvel-lst (acceleration state0-lst (+ t0 dt)))
 	(state1-lst))

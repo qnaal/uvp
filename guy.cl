@@ -198,7 +198,7 @@
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt))
-		    (state1-lst (integrate state0-lst t0 dt)))
+		    (state1-lst (integrate-euler state0-lst t0 dt)))
 	       (dolist (state1 state1-lst)
 		 (with-slots ((thing symbol) pos vel) state1
 		   (setf (get thing :pos) pos
