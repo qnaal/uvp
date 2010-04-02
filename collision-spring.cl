@@ -24,8 +24,8 @@
 ;;       (make-pt-pol (- min-dist dist) (azimuth v-diff)))))
 
 (defun collision-circle-circle (circle1-pt circle2-pt min-dist) ;this one burns
-  "return the contact if the two points collide"
   (declare (optimize speed (safety 0)))
+  "return the contact if the two points collide"
   (let* ((x1 (pt-x circle1-pt))
 	 (y1 (pt-y circle1-pt))
 	 (x2 (pt-x circle2-pt))
@@ -50,26 +50,97 @@
   "return a contact if the circle collides with the line"
   (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
 	 (circ (v- circle-pt line-pt1))
-	 (col-pt (v* (clamp (proj circ line) 0 1) ;the closest point on the line to the circle
+	 (col-pt (v* (clamp (proj circ line)) ;the closest point on the line to the circle
 		     line)))
     (collision-circle-circle circ col-pt circle-r)))
+
+(defun line-line-closest (pt-a1 pt-a2 pt-b1 pt-b2)
+  "return the shortest vector to line-segment-a from line-segment-b, or NIL if they intersect"
+  (let ((line-a (v- pt-a2 pt-a1))
+	(line-b (v- pt-b2 pt-b1)))
+    (cond 
+      ((with-slots (x y) line-a
+	 (= 0 x y))
+       (pt-seg-dist pt-a1 pt-b1 pt-b2))
+      ((with-slots (x y) line-b
+	 (= 0 x y))
+       (v* -1 (pt-seg-dist pt-b1 pt-a1 pt-a2)))
+      ((= 0 (cross line-a line-b))	;parallel
+       (let ((dist1 (pt-seg-dist pt-a1 pt-b1 pt-b2))
+	     (dist2 (pt-seg-dist pt-a2 pt-b1 pt-b2)))
+	 (if (< (pythag dist1) (pythag dist2))
+	     dist1
+	     dist2)))
+      (t
+       (let* ((pt1-dist (v- pt-b1 pt-a1))
+	      (axb (cross line-a line-b))
+	      (ahit (/ (cross pt1-dist line-b) axb))
+	      (bhit (/ (cross pt1-dist line-a) axb)))
+	 (if (and (<= 0 ahit 1) (<= 0 bhit 1)) ;if they intersect
+	     nil
+	     (let* ((line-a (v- pt-a2 pt-a1))
+		    (line-b (v- pt-b2 pt-b1))
+		    (aclose (clamp (cond ((>= bhit 1) (proj pt-b2 pt-a2 pt-a1))
+					 ((<= bhit 0) (proj pt-b1 pt-a2 pt-a1))
+					 (t ahit))))
+		    (bclose (clamp (cond ((>= ahit 1) (proj pt-a2 pt-b2 pt-b1))
+					 ((<= ahit 0) (proj pt-a1 pt-b2 pt-b1))
+					 (t bhit))))
+		    (aclose-pt (v+ pt-a1 (v* aclose line-a)))
+		    (bclose-pt (v+ pt-b1 (v* bclose line-b))))
+	       (v- aclose-pt bclose-pt))))))))
+
+
+(defun collision-line-circle-not-over (line-pt1 line-pt2 circle-pt circle-r circle-pt-safe)
+  "return a contact if the circle has crossed over the line since the last safe point"
+  (let* ((path-to-line (line-line-closest line-pt1 line-pt2 circle-pt circle-pt-safe)))
+    (if path-to-line			;if the lines aren't touching
+	(let* ((diff-r (pythag path-to-line)) ;consider the collision where circle is the closest along its path
+	       (diff-theta (azimuth path-to-line))
+	       (r (- circle-r diff-r))
+	       (theta diff-theta))
+	  (when (> r 0)			;discard if they are farther apart then circle-r
+	    (make-pt-pol r theta)))
+	(let ((r (+ circle-r (pythag (pt-line-dist circle-pt line-pt1 line-pt2)))) ;consider the collision from the other side of the wall
+	      (theta (+ pi (azimuth (pt-line-dist circle-pt-safe line-pt1 line-pt2)))))
+	  (make-pt-pol r theta)
+	  ))))
+
+(defun pt-line-dist (pt line-pt1 line-pt2)
+  "return the shortest vector to PT from the line"
+  (let* ((line (v- line-pt2 line-pt1))
+	 (line-close-pt (v+ line-pt1 (v* (proj pt line-pt2 line-pt1) line))))
+    (v- pt line-close-pt)))
+
+(defun pt-seg-dist (pt seg-pt1 seg-pt2)
+  "return the shortest vector to PT from the segment"
+  (let* ((seg (v- seg-pt2 seg-pt1))
+	 (seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
+    (v- pt seg-close-pt)))
 
 (defun collision-line-line (pt-a1 pt-a2 pt-b1 pt-b2) ;haven't tested this yet, it should work
   "returns where along line A they intersect, in terms of the length of line A"
   (when (not (= 0 (cross (v- pt-a2 pt-a1) ;don't try if lines are parallel
 			 (v- pt-b2 pt-b1)))) ;FIXME: this leaves the remote possibility that someone fires exactly along a wall
-    (let ((ahit (/ (cross (v- pt-b1 pt-a1)
-			  (v- pt-a2 pt-a1))
-		   (cross (v- pt-a2 pt-a1)    ;same
-			  (v- pt-b2 pt-b1)))) ;
-	  (bhit (/ (cross (v- pt-b1 pt-a1)
-			  (v- pt-b2 pt-b1))
-		   (cross (v- pt-a2 pt-a1)     ;same
-			  (v- pt-b2 pt-b1))))) ;
+    (let* ((pt1-dist (v- pt-b1 pt-a1))
+	   (line-a (v- pt-a2 pt-a1))
+	   (line-b (v- pt-b2 pt-b1))
+	   (axb (cross line-a line-b))
+	   (ahit (/ (cross pt1-dist line-b) axb))
+	   (bhit (/ (cross pt1-dist line-a) axb)))
       (when (and (< 0 ahit 1)
 		 (< 0 bhit 1))
 	ahit))))
 
+(defun safe-check (pos0 pos obstacles)
+  (catch 'safe
+    (dolist (poly obstacles)
+      (dotimes (line-ndx (1- (length poly)))
+	(when (collision-line-line (nth     line-ndx  poly)
+				   (nth (1+ line-ndx) poly)
+				   pos0 pos)
+	  (throw 'safe nil))))
+    (throw 'safe t)))
 
 (defun generate-contacts (state0-lst obstacles)
   "return any contacts between 'everyone' and 'obstacles'/eachother"
@@ -77,15 +148,16 @@
   (let ((contact-lst))
     (dotimes (thing-ndx (length state0-lst))
       (let ((state (elt state0-lst thing-ndx)))
-	(with-slots ((thing symbol) pos vel) state
+	(with-slots ((thing symbol) pos safe vel) state
 	  (let ((size (attribute thing :size)))
 	    ;; collisions with walls
 	    (dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
 	      (dotimes (line-ndx (1- (length poly)))
-		(let ((line-acontact (collision-line-circle (nth     line-ndx  poly)
-							    (nth (1+ line-ndx) poly)
-							    pos size
-							    )))
+		(let ((line-acontact (collision-line-circle-not-over
+				      (nth     line-ndx  poly)
+				      (nth (1+ line-ndx) poly)
+				      pos size safe
+				      )))
 		  (when line-acontact
 		    (let ((depth (pt-pol-r line-acontact))
 			  (normal (pt-pol-theta line-acontact)))

@@ -40,3 +40,11 @@
 	       (acc1 (v* (/ mass) force-total)))
 	  (push (cons guy acc1) accel-lst))))
     accel-lst))
+
+(defun acceleration-constant (state0-lst t1)
+  "return constant positive acceleration along x - for testing purposes"
+  (declare (ignore t1))
+  (let ((accel-lst))
+    (dolist (state0 state0-lst accel-lst)
+      (with-slots (symbol) state0
+	(push (cons symbol (make-pt 1 0)) accel-lst)))))

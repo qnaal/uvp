@@ -3,16 +3,16 @@
 	 (let ((statex-lst))
 	   ;; build statex-lst
 	   (dolist (state0 state0-lst)
-	     (with-slots ((thing symbol) (p0 pos) (v0 vel)) state0
+	     (with-slots ((thing symbol) (p0 pos) safe (v0 vel)) state0
 	       (let ((dstate (if prev-dstate
 				 (find thing prev-dstate :key #'state-symbol)
-				 (make-state :symbol t
+				 (make-state :symbol t ;a blank deriv to pretend to do math to
 					     :pos (make-pt)
 					     :vel (make-pt)))))
 		 (with-slots ((dp pos) (dv vel)) dstate
 		   (let ((p1 (v+ p0 (v* dt dp)))
 			 (v1 (v+ v0 (v* dt dv))))
-		     (let ((statex (make-state :symbol thing :pos p1 :vel v1)))
+		     (let ((statex (make-state :symbol thing :pos p1 :safe safe :vel v1)))
 		       (push statex statex-lst)))))))
 	   ;; acceleration thinks statex is state1, as it well should
 	   (let ((dvel-lst (acceleration statex-lst (+ t0 dt)))

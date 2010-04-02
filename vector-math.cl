@@ -124,11 +124,13 @@
     (- (* x1 y2)
        (* x2 y1))))
 
-(defun proj (v1 v2)
-  "closest point on vec O->v2 to v1, in terms of the length of O->v2"
-  (/ (dot v1 v2) (dot v2 v2)))
+(defun proj (pt line-pt2 &optional (line-pt1 (make-pt)))
+  "closest point on line-(pt1->pt2) to pt, in terms of the length of that line"
+  (let ((line (v- line-pt2 line-pt1))
+	(pt-rel (v- pt line-pt1)))
+    (/ (dot pt-rel line) (dot line line))))
 
-(defun clamp (x min max)
+(defun clamp (x &optional (max 1) (min 0))
   (cond ((> x max) max)
 	((< x min) min)
 	(t x)))

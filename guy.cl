@@ -9,11 +9,13 @@
 (defvar *time* '(0))
 ;(defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
 (defvar *map-load* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
-(defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
+(defparameter *collision-flavor* '(:guy (:guy (200 30) :wall (1000 5))))
+;; (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
 ;; (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (20000 100))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
+(defvar *time-start*)
 
 (load "vector-math.cl")
 
@@ -32,6 +34,11 @@
   (or (get mortal attribute)
       (getf (getf *class-list* (get mortal :class))
 	   attribute)))
+
+(defun decimalize (number places)
+  (let ((precision (expt 10 places)))
+    (float (/ (round number (/ precision))
+	      precision))))
 
 (defstruct particle
   type pos theta birth)
@@ -96,6 +103,7 @@
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
+	  (get mortal :safe) pos
 	  (get mortal :vel) (make-pt)
 	  (get mortal :acc-pol) (make-pt-pol)
 	  (get mortal :control) control
@@ -103,7 +111,7 @@
     mortal))
 
 ;; should macro this from a list of attributes
-(defun define-class (name size acc-spd leg-str mass accelk)
+(defun define-class (name &key size acc-spd leg-str mass accelk)
   (setf (getf *class-list* name)
 	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
 
@@ -123,6 +131,7 @@
 (defstruct state
   (symbol 0 :type symbol)
   (pos () :type pt)
+  (safe ())
   (vel () :type pt))
 
 (load "collision-spring.cl")
@@ -155,12 +164,13 @@
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
   (time-adv)
+  (setf *time-start* (time-now))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 20 80 2 4)
-  (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
-  ;; (define-class :fighter 1 20 40 2 4)
-  ;; (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
+  ;; (define-class :fighter 1 20 80 2 4)
+  ;; (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
+  (define-class :fighter :size 1 :acc-spd 40 :leg-str 120 :mass 4 :accelk 4)
+  (define-class :baddie-swarmer :size 1/2 :acc-spd 1 :leg-str 50 :mass 1 :accelk 1/2)
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
@@ -171,7 +181,7 @@
 
   (catch 'game-over
     (sdl:with-init ()
-      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 5 :max-dt 100))
+      (sdl:window width height :fps (make-instance 'sdl:fps-timestep :dt 20 :max-dt 100))
       (setf (sdl:frame-rate) 0)
       (sdl:with-events ()
 	(:key-down-event (:key key)
@@ -184,31 +194,41 @@
 	(:idle
 
 	 (sdl:with-timestep 
+	   ;; physics and such important stuff go here
+	   ;; perhaps put all this in some sort of Grand Unified Timestep Function perhaps?
 	   (let* ((everyone (append *baddies* (list *guy*))) ;TODO: make a global vector for 'everyone's symbols
 		  (state0-lst))
 	     ;; generate states
 	     (dolist (thing everyone)
 	       (let ((pos (attribute thing :pos))
+		     (safe (attribute thing :safe))
 		     (vel (attribute thing :vel)))
 		 (push (make-state :symbol thing
 				   :pos pos
+				   :safe safe
 				   :vel vel)
 		       state0-lst)))
 	     ;; integrate to state1, then move things
 	     (let* ((dt (/ (sdl:dt) 1000))
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt))
-		    (state1-lst (integrate-euler state0-lst t0 dt)))
+		    (state1-lst (integrate-rk4 state0-lst t0 dt)))
 	       (dolist (state1 state1-lst)
 		 (with-slots ((thing symbol) pos vel) state1
+		   (let ((pos0 (get thing :pos))
+			 (safe (get thing :safe)))
+		     (when (safe-check pos0 safe *map*)
+		       (setf (get thing :safe) pos0)))
 		   (setf (get thing :pos) pos
-			 (get thing :vel) vel))))))
-
+			 (get thing :vel) vel)))))
+	   )
 	 ;; everything but the physics
 	 (time-adv)
-	 (print (list 'fps (round (sdl:average-fps))))
+	 ;; (when (>= (time-now) (+ 10 *time-start*)) ;for time-based tests
+	 ;;   (throw 'game-over 'timeout))
+	 ;; (print (list 'fps (round (sdl:average-fps))))
 	 (if (< (length *baddies*)
-		20)
+		0)
 	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
 				 :class :baddie-swarmer
 				 :control :ai)
@@ -223,16 +243,15 @@
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
-	 ))))
-  t)
+	 )))))
 
 
 
 (defun test-loop (&optional (width 800) (height 800))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
-  (define-class :fighter 1 20 40 2 4)
-  (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
+  ;; (define-class :fighter 1 20 40 2 4)
+  ;; (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
