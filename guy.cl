@@ -99,12 +99,12 @@
       (make-pt-pol r-crop theta))))
 
 ;; should include a key for any mods (from magic, leveling, etc)
-(defun spawn-mortal (&key pos class control)
+(defun spawn-mortal (&key pos class control (vel (make-pt)))
   (let ((mortal (gensym)))
     (setf (get mortal :class) class
 	  (get mortal :pos) pos
 	  (get mortal :safe) pos
-	  (get mortal :vel) (make-pt)
+	  (get mortal :vel) vel
 	  (get mortal :acc-pol) (make-pt-pol)
 	  (get mortal :control) control
 	  (get mortal :hp) (getf (getf *class-list* class) :health))
@@ -126,7 +126,8 @@
 		(target-y (pt-y target-pt)))
 	   (make-pt-pol 1 (atan (- target-y y)
 				(- target-x x)))))
-    (:input (get-input-polar))))
+    (:input (get-input-polar))
+    (:none (make-pt-pol))))
 
 (defstruct state
   (symbol 0 :type symbol)
@@ -161,12 +162,7 @@
     (sdl:draw-pixel-* (+ 50 (round (* 1/2 (pt-x acc))))
 		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
 
-;; The Top Gameloop
-(defun play-a-game (&optional (width 800) (height 800))
-  (time-adv)
-  (setf *time-start* (time-now))
-  (print (/ (get-internal-real-time)
-	    internal-time-units-per-second))
+(defun game-init ()
   ;; (define-class :fighter 1 20 80 2 4)
   ;; (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
   (define-class :fighter :size 1 :acc-spd 40 :leg-str 120 :mass 4 :accelk 4)
@@ -174,8 +170,28 @@
   (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			    :class :fighter
 			    :control :input)
-	*baddies* ())
+	*baddies* ()))
 
+(defun game-timestep ())
+
+(defun game-gameloop ()
+  ;; (when (>= (time-now) (+ 10 *time-start*)) ;for time-based tests
+  ;;   (throw 'game-over 'timeout))
+  ;; (print (list 'fps (round (sdl:average-fps))))
+  (if (< (length *baddies*)
+	 0)
+      (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
+			  :class :baddie-swarmer
+			  :control :ai)
+	    *baddies*)))
+
+;; The Top Gameloop
+(defun play-a-game (&optional (width 800) (height 800))
+  (time-adv)
+  (setf *time-start* (time-now))
+  (print (/ (get-internal-real-time)
+	    internal-time-units-per-second))
+  (game-init)
   (setf *map* (generate-map *map-load*))
   (setq *particles* nil)
 
@@ -220,20 +236,14 @@
 		     (when (safe-check pos0 safe *map*)
 		       (setf (get thing :safe) pos0)))
 		   (setf (get thing :pos) pos
-			 (get thing :vel) vel)))))
+			 (get thing :vel) vel))))
+	     (game-timestep)
+	     )
 	   )
 	 ;; everything but the physics
 	 (time-adv)
-	 ;; (when (>= (time-now) (+ 10 *time-start*)) ;for time-based tests
-	 ;;   (throw 'game-over 'timeout))
-	 ;; (print (list 'fps (round (sdl:average-fps))))
-	 (if (< (length *baddies*)
-		0)
-	     (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
-				 :class :baddie-swarmer
-				 :control :ai)
-		   *baddies*))
 	 (movement-debug *guy*)
+	 (game-gameloop)
 
 	 (draw-guy *guy*)
 	 (dolist (baddie *baddies*)
