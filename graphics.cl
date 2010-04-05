@@ -15,7 +15,7 @@
 	 (pt (project-pt pos))
 	 (safe (project-pt (attribute guy :safe)))
 	 (r (project (attribute guy :size))))
-    (sdl-gfx:draw-circle safe r :color sdl:*yellow* :aa (getf *options* :aa))
+    (sdl-gfx:draw-circle safe r :color sdl:*red* :aa (getf *options* :aa))
     (sdl-gfx:draw-circle pt r :color sdl:*white* :aa (getf *options* :aa))))
 
 (defun draw-poly (poly color)

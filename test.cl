@@ -21,7 +21,10 @@
 			      :class :mrboring
 			      :control :none
 			      )))
-  (defun game-timestep ())
+  (defun game-timestep ()
+    ;; (when (>= (time-now) (+ 10 *time-start*))
+    ;;   (throw 'game-over 'timeout))
+    )
   (defun game-gameloop ())
   (defun motor (thing vel)
     (declare (ignore thing vel))
@@ -31,8 +34,13 @@
 (defun testcase-elastic-collision ()
   (let ((speed-initial 20)
 	(places 3))
-    (defparameter *collision-flavor* '(:guy (:wall (1000 0))))
-    (setf *map-load* '(((10 0) (10 100))))
+    (setf *collision-flavor* '(:guy (:wall (5000 0))))
+    (setf *map-load* '(((1.005 2.34)	   ;many complicated bounces
+			(48.511 5.97)
+			(1.629 47.8)
+			(1.005 2.34)
+			)))
+    ;; (setf *map-load* '(((10 0) (10 100)))) ;one easy bounce
     (test-accelerate-constant :pos (make-pt 20 20) :vel (make-pt (- speed-initial) 0))
     (play-a-game)
     (let* ((speed-final (pythag (attribute *guy* :vel))))

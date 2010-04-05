@@ -7,15 +7,12 @@
 (defvar *class-list* nil)
 (defvar *zoom* 10)
 (defvar *time* '(0))
-;(defvar *map* '(((15 15) (20 20) (10 55) (30 20))))
-(defvar *map-load* '(((15 15) (20 20) (10 55) (30 20)) ((50 50) (50 60) (60 60) (60 50))))
-(defparameter *collision-flavor* '(:guy (:guy (200 30) :wall (1000 5))))
-;; (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (10000 50))))
-;; (defparameter *collision-flavor* '(:guy (:guy (2000 30) :wall (20000 100))))
 (defvar *mapbounds*)
 (defvar *particles* nil)
 (defvar *buffer* (/ 1000))
 (defvar *time-start*)
+(defvar *map-load* nil)
+(defvar *collision-flavor*)
 
 (load "vector-math.cl")
 
@@ -138,6 +135,8 @@
 (load "collision-spring.cl")
 (load "physics.cl")
 (load "rk4.cl")
+(load "mods.cl")
+(game-baddies)
 
 (defun movement-debug (mortal)
   "radar thing"
@@ -162,38 +161,16 @@
     (sdl:draw-pixel-* (+ 50 (round (* 1/2 (pt-x acc))))
 		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
 
-(defun game-init ()
-  ;; (define-class :fighter 1 20 80 2 4)
-  ;; (define-class :baddie-swarmer 1/2 1 100 1/2 1/2)
-  (define-class :fighter :size 1 :acc-spd 40 :leg-str 120 :mass 4 :accelk 4)
-  (define-class :baddie-swarmer :size 1/2 :acc-spd 1 :leg-str 50 :mass 1 :accelk 1/2)
-  (setq *guy* (spawn-mortal :pos (make-pt 10 10)
-			    :class :fighter
-			    :control :input)
-	*baddies* ()))
-
-(defun game-timestep ())
-
-(defun game-gameloop ()
-  ;; (when (>= (time-now) (+ 10 *time-start*)) ;for time-based tests
-  ;;   (throw 'game-over 'timeout))
-  ;; (print (list 'fps (round (sdl:average-fps))))
-  (if (< (length *baddies*)
-	 0)
-      (push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
-			  :class :baddie-swarmer
-			  :control :ai)
-	    *baddies*)))
-
 ;; The Top Gameloop
 (defun play-a-game (&optional (width 800) (height 800))
-  (time-adv)
-  (setf *time-start* (time-now))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
   (game-init)
   (setf *map* (generate-map *map-load*))
   (setq *particles* nil)
+
+  (time-adv)
+  (setf *time-start* (time-now))
 
   (catch 'game-over
     (sdl:with-init ()
@@ -239,6 +216,7 @@
 		   (setf (get thing :pos) pos
 			 (get thing :vel) vel))))
 	     (game-timestep)
+	     ;; (print (list 'fps (round (sdl:average-fps))))
 	     )
 	   )
 	 ;; everything but the physics
@@ -253,7 +231,8 @@
 	 (draw-map *map* sdl:*magenta*)
 	 (sdl:update-display)
 	 (sdl:clear-display sdl:*black*)
-	 )))))
+	 ))))
+  t)
 
 
 
