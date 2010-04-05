@@ -2,7 +2,7 @@
 	 "returns the derivatives of the states over dt"
 	 (let ((statex-lst))
 	   ;; build statex-lst
-	   (dolist (state0 state0-lst)
+	   (dolist (state0 state0-lst)	;euler-integrate state0 with prev-dstate to get statex
 	     (with-slots ((thing symbol) (p0 pos) safe (v0 vel)) state0
 	       (let ((dstate (if prev-dstate
 				 (find thing prev-dstate :key #'state-symbol)
@@ -24,8 +24,8 @@
 				   (make-state :symbol t
 					       :pos (make-pt)
 					       :vel (make-pt)))))
-		   (with-slots ((dp pos)) dstate
-		     (let ((out-dpos (v+ v0 (v* dt dp))) ;same as v1 from above
+		   (with-slots ((dv vel)) dstate
+		     (let ((out-dpos (v+ v0 (v* dt dv))) ;same as v1 from above
 			   (out-dvel (cdr (assoc thing dvel-lst))))
 		       (push (make-state :symbol thing
 					 :pos out-dpos

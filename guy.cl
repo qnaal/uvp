@@ -210,6 +210,7 @@
 	(:idle
 
 	 (sdl:with-timestep 
+	   (time-adv)
 	   ;; physics and such important stuff go here
 	   ;; perhaps put all this in some sort of Grand Unified Timestep Function perhaps?
 	   (let* ((everyone (append *baddies* (list *guy*))) ;TODO: make a global vector for 'everyone's symbols
@@ -241,7 +242,6 @@
 	     )
 	   )
 	 ;; everything but the physics
-	 (time-adv)
 	 (movement-debug *guy*)
 	 (game-gameloop)
 
