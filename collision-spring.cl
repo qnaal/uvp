@@ -95,16 +95,16 @@
   "return a contact if the circle has crossed over the line since the last safe point"
   (let* ((path-to-line (line-line-closest line-pt1 line-pt2 circle-pt circle-pt-safe)))
     (if path-to-line			;if the lines aren't touching
-	(let* ((diff-r (pythag path-to-line)) ;consider the collision where circle is the closest along its path
-	       (diff-theta (azimuth path-to-line))
-	       (r (- circle-r diff-r))
-	       (theta diff-theta))
-	  (when (> r 0)			;discard if they are farther apart then circle-r
-	    (make-pt-pol r theta)))
-	(let ((r (+ circle-r (pythag (pt-line-dist circle-pt line-pt1 line-pt2)))) ;consider the collision from the other side of the wall
+	;; Then do it normally
+	(collision-line-circle line-pt1 line-pt2 circle-pt circle-r)
+					;it might be a better plan to
+					;take the magnitude of c-l-c
+					;with the direction of
+					;path-to-line
+	;; Else consider the collision from the other side of the wall
+	(let ((r (+ circle-r (pythag (pt-line-dist circle-pt line-pt1 line-pt2))))
 	      (theta (+ pi (azimuth (pt-line-dist circle-pt-safe line-pt1 line-pt2)))))
-	  (make-pt-pol r theta)
-	  ))))
+	  (make-pt-pol r theta)))))
 
 (defun pt-line-dist (pt line-pt1 line-pt2)
   "return the shortest vector to PT from the line"
