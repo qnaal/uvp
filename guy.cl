@@ -26,11 +26,22 @@
 		     (car *time*))))
 
 ;; this would look good in a hashtable
-(defun attribute (mortal attribute)
+(defun attribute (mortal attribute &optional (check-class t))
   "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
   (or (get mortal attribute)
-      (getf (getf *class-list* (get mortal :class))
-	   attribute)))
+      (when check-class
+	(getf (getf *class-list* (attribute mortal :class nil))
+	      attribute))))
+
+(defun attribute-set (mortal &rest args)
+  (if (= (length args) 2)
+      (destructuring-bind (attribute value) args
+	(setf (get mortal attribute) value))
+      (dotimes (i (/ (length args) 2))
+	(let* ((attribute (pop args))
+	       (value (pop args)))
+	  (attribute-set mortal attribute value)))))
+
 
 (defun decimalize (number places)
   (let ((precision (expt 10 places)))
@@ -41,9 +52,11 @@
   type pos theta birth)
 
 (defun spawn-particle (guy type theta)
-  (let ((pos (attribute guy :pos))
+  (let ((symbol (gensym))
+	(pos (attribute guy :pos))
 	(now (time-now)))
-    (make-particle :type type :pos pos :theta theta :birth now)))
+    (set symbol (make-particle :type type :pos pos :theta theta :birth now))
+    symbol))
 
 (defun advance-particle (particle dt)
   (let* ((pos (particle-pos particle))
@@ -98,13 +111,14 @@
 ;; should include a key for any mods (from magic, leveling, etc)
 (defun spawn-mortal (&key pos class control (vel (make-pt)))
   (let ((mortal (gensym)))
-    (setf (get mortal :class) class
-	  (get mortal :pos) pos
-	  (get mortal :safe) pos
-	  (get mortal :vel) vel
-	  (get mortal :acc-pol) (make-pt-pol)
-	  (get mortal :control) control
-	  (get mortal :hp) (getf (getf *class-list* class) :health))
+    (attribute-set mortal
+		   :class class
+		   :pos pos
+		   :safe pos
+		   :vel vel
+		   :acc-pol (make-pt-pol)
+		   :control control
+		   :hp (getf (getf *class-list* class) :health))
     mortal))
 
 ;; should macro this from a list of attributes
@@ -207,14 +221,19 @@
 		    (t1 (/ (sdl:system-ticks) 1000))
 		    (t0 (- t1 dt))
 		    (state1-lst (integrate-rk4 state0-lst t0 dt)))
-	       (dolist (state1 state1-lst)
-		 (with-slots ((thing symbol) pos vel) state1
-		   (let ((pos0 (get thing :pos))
-			 (safe (get thing :safe)))
-		     (when (safe-check pos0 safe *map*)
-		       (setf (get thing :safe) pos0)))
-		   (setf (get thing :pos) pos
-			 (get thing :vel) vel))))
+	       (let ((contact-lst (generate-contacts state1-lst *map*))) ;handle contacts on volatile objects
+		 (dolist (contact contact-lst)
+		   (with-slots (thing hit) contact
+		     (dolist (obj (list thing hit))
+		       (when (attribute obj :volatile)
+			 (setf *particles* (delete obj *particles*)))))))
+
+	       (dolist (state1 state1-lst) ;apply state1 to objects
+		 (with-slots ((thing symbol) pos safe vel) state1
+		   (attribute-set thing
+				  :pos pos
+				  :safe safe
+				  :vel vel))))
 	     (game-timestep)
 	     ;; (print (list 'fps (round (sdl:average-fps))))
 	     )

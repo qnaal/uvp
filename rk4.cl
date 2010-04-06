@@ -41,7 +41,7 @@
 	   (d (evaluate-deriv state0-lst (+ t0 dt)       dt       c))
 	   (output))
       (dolist (state0 state0-lst output)
-	(with-slots ((thing symbol) (pos0 pos) (vel0 vel)) state0
+	(with-slots ((thing symbol) (pos0 pos) safe (vel0 vel)) state0
 	  (with-slots ((dp1 pos) (dv1 vel)) (find thing a :key #'state-symbol)
 	    (with-slots ((dp2 pos) (dv2 vel)) (find thing b :key #'state-symbol)
 	      (with-slots ((dp3 pos) (dv3 vel)) (find thing c :key #'state-symbol)
@@ -50,6 +50,9 @@
 			(dv (v* 1/6 (v+ dv1 (v* 2 (v+ dv2 dv3)) dv4))))
 		    (push (make-state :symbol thing
 				      :pos (v+ pos0 (v* dt dp))
+				      :safe (if (safe-check pos0 safe *map*)
+						pos0
+						(attribute thing :safe))
 				      :vel (v+ vel0 (v* dt dv)))
 			  output)))))))))))
 
@@ -59,10 +62,13 @@
   (let ((dvel-lst (acceleration state0-lst (+ t0 dt)))
 	(state1-lst))
     (dolist (state0 state0-lst state1-lst)
-      (with-slots ((thing symbol) (pos0 pos) (vel0 vel)) state0
+      (with-slots ((thing symbol) (pos0 pos) safe (vel0 vel)) state0
 	(let* ((dvel (cdr (assoc thing dvel-lst)))
 	       (dpos (v+ vel0 (v* dt dvel))))
 	  (push (make-state :symbol thing
 			    :pos (v+ pos0 (v* dt dpos))
+			    :safe (if (safe-check pos0 safe *map*)
+				      pos0
+				      (attribute thing :safe))
 			    :vel (v+ vel0 (v* dt dvel)))
 		state1-lst))))))

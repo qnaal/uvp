@@ -149,27 +149,30 @@
     (dotimes (thing-ndx (length state0-lst))
       (let ((state (elt state0-lst thing-ndx)))
 	(with-slots ((thing symbol) pos safe vel) state
-	  (let ((size (attribute thing :size)))
+	  (let ((shape :circle)		;FIXME: actually get this from somewhere
+		(size (attribute thing :size)))
 	    ;; collisions with walls
 	    (dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
 	      (dotimes (line-ndx (1- (length poly)))
-		(let ((line-acontact (collision-line-circle-not-over
-				      (nth     line-ndx  poly)
-				      (nth (1+ line-ndx) poly)
-				      pos size safe
-				      )))
-		  (when line-acontact
-		    (let ((depth (pt-pol-r line-acontact))
-			  (normal (pt-pol-theta line-acontact)))
+		(case shape
+		  (:circle (let ((line-acontact (collision-line-circle-not-over
+						 (nth     line-ndx  poly)
+						 (nth (1+ line-ndx) poly)
+						 pos size safe
+						 )))
+			     (when line-acontact
+			       (let ((depth (pt-pol-r line-acontact))
+				     (normal (pt-pol-theta line-acontact)))
 					;(setf *debug-contact* line-acontact) ;TEST
-		      (push (make-contact :depth depth
-					  :normal normal
-					  :thing thing
-					  :thing-pos pos
-					  :thing-vel vel
-					  :hit :wall
-					  :hit-vel (make-pt))
-			    contact-lst))))))
+				 (push (make-contact :depth depth
+						     :normal normal
+						     :thing thing
+						     :thing-pos pos
+						     :thing-vel vel
+						     :hit :wall
+						     :hit-vel (make-pt))
+				       contact-lst)))))
+		  )))
 	    ;; collisions with other guys, do each pair once
 	    (dotimes (o-thing-ndx thing-ndx)
 	      (let* ((other-state (elt state0-lst o-thing-ndx)))
