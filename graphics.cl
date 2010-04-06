@@ -36,8 +36,8 @@
       (draw-poly sdl-poly color))))
 
 (defun draw-particle (part)
-  (let* ((pos (particle-pos part))
-	 (theta (particle-theta part))
+  (let* ((pos (attribute part :pos))
+	 (theta (attribute part :theta))
 	 (size 10)
 	 (pt1 (project-pt pos))
 	 (pt0 (project-pt (v- pos

@@ -5,6 +5,7 @@
 (defvar *baddies* nil)
 (defvar *guy* nil)
 (defvar *class-list* nil)
+(defvar *type-list* nil)
 (defvar *zoom* 10)
 (defvar *time* '(0))
 (defvar *mapbounds*)
@@ -25,13 +26,27 @@
 			internal-time-units-per-second)
 		     (car *time*))))
 
+(defun type-attribute (type attribute)
+  "returns the default ATTRIBUTE for class/weapon/type TYPE"
+  (or (getf (getf *class-list* type) attribute)
+      (getf (getf *type-list* type) attribute)))
+
 ;; this would look good in a hashtable
-(defun attribute (mortal attribute &optional (check-class t))
+(defun attribute (mortal attribute &optional (check-class t) (check-type 1))
   "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
   (or (get mortal attribute)
       (when check-class
-	(getf (getf *class-list* (attribute mortal :class nil))
-	      attribute))))
+	(type-attribute (attribute mortal :class nil) attribute)
+	;; (getf (getf *class-list* (or (attribute mortal :class nil)
+	;; 			     (attribute mortal :type nil)))
+	;;       attribute)
+	)
+      (when check-type
+	(type-attribute (attribute mortal :type nil nil) attribute)
+	;; (getf (getf *type-list* (attribute mortal :type nil nil))
+	;;       attribute)
+	)
+      ))
 
 (defun attribute-set (mortal &rest args)
   (if (= (length args) 2)
@@ -48,23 +63,27 @@
     (float (/ (round number (/ precision))
 	      precision))))
 
-(defstruct particle
-  type pos theta birth)
-
 (defun spawn-particle (guy type theta)
   (let ((symbol (gensym))
-	(pos (attribute guy :pos))
+	(pos (v+ (attribute guy :pos)
+		 (carterize (make-pt-pol (+ (type-attribute type :size)
+					    1/10 ;FIXME
+					    (attribute guy :size))
+					 theta))))
+	(safe (attribute guy :safe))
+	(vel (v+ (carterize (make-pt-pol 500 theta))
+		 (attribute guy :vel)))
 	(now (time-now)))
-    (set symbol (make-particle :type type :pos pos :theta theta :birth now))
+    (attribute-set symbol
+		   :owner guy
+		   :type type
+		   :pos pos
+		   :safe safe
+		   :vel vel
+		   :theta theta
+		   :volatile t
+		   :birth now)
     symbol))
-
-(defun advance-particle (particle dt)
-  (let* ((pos (particle-pos particle))
-	 (theta (particle-theta particle))
-	 (speed 100)
-	 (traveled (carterize (make-pt-pol (* speed dt) theta)))
-	 )
-    (setf (particle-pos particle) (v+ pos traveled))))
 
 (load "graphics.cl")
 
@@ -91,8 +110,8 @@
 	 (let ((aim-rel (v- (make-pt (unproject x) (unproject y))
 			    (attribute *guy* :pos))))
 	   (push (spawn-particle *guy*
-				  :arrow
-				  (azimuth aim-rel))
+				 :arrow
+				 (azimuth aim-rel))
 		 *particles*))
 	 )
       (:sdl-key-q (throw 'game-over 'quit))
@@ -118,13 +137,18 @@
 		   :vel vel
 		   :acc-pol (make-pt-pol)
 		   :control control
+		   :motor :motor
 		   :hp (getf (getf *class-list* class) :health))
     mortal))
 
 ;; should macro this from a list of attributes
 (defun define-class (name &key size acc-spd leg-str mass accelk)
   (setf (getf *class-list* name)
-	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk)))
+	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk :type :guy)))
+
+(defun define-type (name &key squish elasticity shape size mass)
+  (setf (getf *type-list* name)
+	(list :squish squish :elasticity elasticity :shape shape :size size :mass mass)))
 
 (defun get-run (mortal)
   "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"
@@ -204,7 +228,7 @@
 	   (time-adv)
 	   ;; physics and such important stuff go here
 	   ;; perhaps put all this in some sort of Grand Unified Timestep Function perhaps?
-	   (let* ((everyone (append *baddies* (list *guy*))) ;TODO: make a global vector for 'everyone's symbols
+	   (let* ((everyone (append *baddies* *particles* (list *guy*))) ;TODO: make a global vector for 'everyone's symbols
 		  (state0-lst))
 	     ;; generate states
 	     (dolist (thing everyone)

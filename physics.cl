@@ -8,21 +8,24 @@
 
 (defun motor (thing vel)
   "calculates the force thing applies to itself"
-  (let ((run (get-run thing))
-	(mass (attribute thing :mass))
-	(size (attribute thing :size))
-	(leg-str (attribute thing :leg-str))
-	(accelk (attribute thing :accelk)))
-    (with-slots ((run-r r) (run-theta theta)) run
-      (let* ((spd-max (* leg-str size (/ mass))) ;this needs thought about more- should it take size into account etc
-	     (target-r (* spd-max run-r))
-	     (vel-target (carterize (make-pt-pol target-r run-theta)))
-	     (vel-diff (v- vel vel-target)))
-	(with-slots ((vel-diff-r r) (vel-diff-theta theta)) (polarize vel-diff)
-	  (let* ((force-pol (make-pt-pol (spring accelk vel-diff-r)
-					 vel-diff-theta))
-		 (force (carterize force-pol)))
-	    force))))))
+  (case (attribute thing :motor)
+    (:motor
+     (let ((run (get-run thing))
+	   (mass (attribute thing :mass))
+	   (size (attribute thing :size))
+	   (leg-str (attribute thing :leg-str))
+	   (accelk (attribute thing :accelk)))
+       (with-slots ((run-r r) (run-theta theta)) run
+	 (let* ((spd-max (* leg-str size (/ mass))) ;this needs thought about more- should it take size into account etc
+		(target-r (* spd-max run-r))
+		(vel-target (carterize (make-pt-pol target-r run-theta)))
+		(vel-diff (v- vel vel-target)))
+	   (with-slots ((vel-diff-r r) (vel-diff-theta theta)) (polarize vel-diff)
+	     (let* ((force-pol (make-pt-pol (spring accelk vel-diff-r)
+					    vel-diff-theta))
+		    (force (carterize force-pol)))
+	       force))))))
+    (otherwise (make-pt))))
 
 ;; called by 'evaluate-deriv' four times per physics-loop
 (defun acceleration (state0-lst t1)
