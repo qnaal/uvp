@@ -15,8 +15,7 @@
     (define-type :arrow :shape :circle :size 1/10 :mass 1/2)
     (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			      :class :fighter
-			      :control :input)
-	  *baddies* ()))
+			      :control :input)))
 
   (defun game-timestep ())
 

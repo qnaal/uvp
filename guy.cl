@@ -206,6 +206,7 @@
   (game-init)
   (setf *map* (generate-map *map-load*))
   (setq *particles* nil)
+  (setq *baddies* nil)
 
   (time-adv)
   (setf *time-start* (time-now))
