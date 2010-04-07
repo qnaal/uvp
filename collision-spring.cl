@@ -46,13 +46,17 @@
 ;;       (make-pt-pol (- min-dist (sqrt dist-squared))
 ;; 		   (azimuth v-diff)))))
 
-(defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
-  "return a contact if the circle collides with the line"
-  (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
-	 (circ (v- circle-pt line-pt1))
-	 (col-pt (v* (clamp (proj circ line)) ;the closest point on the line to the circle
-		     line)))
-    (collision-circle-circle circ col-pt circle-r)))
+(defun pt-line-dist (pt line-pt1 line-pt2)
+  "return the shortest vector to PT from the line"
+  (let* ((line (v- line-pt2 line-pt1))
+	 (line-close-pt (v+ line-pt1 (v* (proj pt line-pt2 line-pt1) line))))
+    (v- pt line-close-pt)))
+
+(defun pt-seg-dist (pt seg-pt1 seg-pt2)
+  "return the shortest vector to PT from the segment"
+  (let* ((seg (v- seg-pt2 seg-pt1))
+	 (seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
+    (v- pt seg-close-pt)))
 
 (defun line-line-closest (pt-a1 pt-a2 pt-b1 pt-b2)
   "return the shortest vector to line-segment-a from line-segment-b, or NIL if they intersect"
@@ -90,6 +94,13 @@
 		    (bclose-pt (v+ pt-b1 (v* bclose line-b))))
 	       (v- aclose-pt bclose-pt))))))))
 
+(defun collision-line-circle (line-pt1 line-pt2 circle-pt circle-r)
+  "return a contact if the circle collides with the line"
+  (let* ((line (v- line-pt2 line-pt1))	;line/circ relative forms
+	 (circ (v- circle-pt line-pt1))
+	 (col-pt (v* (clamp (proj circ line)) ;the closest point on the line to the circle
+		     line)))
+    (collision-circle-circle circ col-pt circle-r)))
 
 (defun collision-line-circle-not-over (line-pt1 line-pt2 circle-pt circle-r circle-pt-safe)
   "return a contact if the circle has crossed over the line since the last safe point"
@@ -105,18 +116,6 @@
 	(let ((r (+ circle-r (pythag (pt-line-dist circle-pt line-pt1 line-pt2))))
 	      (theta (+ pi (azimuth (pt-line-dist circle-pt-safe line-pt1 line-pt2)))))
 	  (make-pt-pol r theta)))))
-
-(defun pt-line-dist (pt line-pt1 line-pt2)
-  "return the shortest vector to PT from the line"
-  (let* ((line (v- line-pt2 line-pt1))
-	 (line-close-pt (v+ line-pt1 (v* (proj pt line-pt2 line-pt1) line))))
-    (v- pt line-close-pt)))
-
-(defun pt-seg-dist (pt seg-pt1 seg-pt2)
-  "return the shortest vector to PT from the segment"
-  (let* ((seg (v- seg-pt2 seg-pt1))
-	 (seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
-    (v- pt seg-close-pt)))
 
 (defun collision-line-line (pt-a1 pt-a2 pt-b1 pt-b2) ;haven't tested this yet, it should work
   "returns where along line A they intersect, in terms of the length of line A"
