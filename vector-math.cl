@@ -10,40 +10,6 @@
 ;;       (list v1 v2)
 ;;     (list (+ x1 x2) (+ y1 y2))))
 
-(defstruct vec
-  x y)
-(defun make-pt (&optional (x 0) (y 0))
-  (make-vec :x x :y y))
-(defun pt-x (pt)
-  (vec-x pt))
-(defun pt-y (pt)
-  (vec-y pt))
-(deftype pt () 'vec)
-
-;; (defun make-pt (&optional (x 0) (y 0))
-;;   (vector x y))
-;; (defun pt-x (pt)
-;;   (elt pt 0))
-;; (defun pt-y (pt)
-;;   (elt pt 1))
-
-(defstruct vec-pol
-  r theta)
-(defun make-pt-pol (&optional (r 0) (theta 0))
-  (make-vec-pol :r r :theta theta))
-(defun pt-pol-r (pt)
-  (vec-pol-r pt))
-(defun pt-pol-theta (pt)
-  (vec-pol-theta pt))
-(deftype pt-pol () 'vec-pol)
-
-;; (defun make-pt-pol (&optional (r 0) (theta 0))
-;;   (vector r theta))
-;; (defun pt-pol-r (pt-pol)
-;;   (elt pt-pol 0))
-;; (defun pt-pol-theta (pt-pol)
-;;   (elt pt-pol 1))
-
 (defun v+ (&rest vectors)
   "subtracts cartesian vectors"
   (let ((output (make-pt)))

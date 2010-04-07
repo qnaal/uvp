@@ -3,17 +3,6 @@
   (- (* (- k) x)
      (* c v)))
 
-;;normal is the _penetration normal_, ie the force will need to be in the opposite direction to correct it
-(defstruct contact
-  depth
-  normal				;the direction of the collision
-  (thing () :type symbol)		;the thing that hit something
-  (thing-pos () :type pt)
-  (thing-vel () :type pt)
-  (hit () :type symbol)			;the something that thing hit
-  hit-pos
-  (hit-vel () :type pt))
-
 (declaim (ftype (function (pt pt real) (or null pt-pol)) collision-circle-circle))
 ;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist)
 ;;   (declare (optimize speed (safety 0)))

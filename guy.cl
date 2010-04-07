@@ -15,6 +15,7 @@
 (defvar *map-load* nil)
 (defvar *collision-flavor*)
 
+(load "datatypes.cl")
 (load "vector-math.cl")
 
 (defun time-now ()
@@ -163,12 +164,6 @@
 				(- target-x x)))))
     (:input (get-input-polar))
     (:none (make-pt-pol))))
-
-(defstruct state
-  (symbol 0 :type symbol)
-  (pos () :type pt)
-  (safe ())
-  (vel () :type pt))
 
 (load "collision-spring.cl")
 (load "physics.cl")
