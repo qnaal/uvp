@@ -12,11 +12,10 @@
     (:motor
      (let ((run (get-run thing))
 	   (mass (attribute thing :mass))
-	   (size (attribute thing :size))
 	   (leg-str (attribute thing :leg-str))
 	   (accelk (attribute thing :accelk)))
        (with-slots ((run-r r) (run-theta theta)) run
-	 (let* ((spd-max (* leg-str size (/ mass))) ;this needs thought about more- should it take size into account etc
+	 (let* ((spd-max (* leg-str (/ mass))) ;this needs thought about more- should it take size into account etc
 		(target-r (* spd-max run-r))
 		(vel-target (carterize (make-pt-pol target-r run-theta)))
 		(vel-diff (v- vel vel-target)))

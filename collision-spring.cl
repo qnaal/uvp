@@ -120,6 +120,104 @@
 		 (< 0 bhit 1))
 	ahit))))
 
+(defstruct shape
+  )
+
+(defstruct (circle (:include shape))
+  r)
+
+(defstruct (segment (:include shape))
+  pt1 pt2)
+
+(defmacro do-wallsegments ((pt1 pt2) poly &body body)
+  (let ((wall-ndx (gensym)))
+    `(dotimes (,wall-ndx (1- (length ,poly)))
+       (let ((,pt1 (nth     ,wall-ndx  ,poly))
+	     (,pt2 (nth (1+ ,wall-ndx) ,poly)))
+	 ,@body))))
+
+(defmacro do-walls ((pt1 pt2) map &body body)
+  (let ((poly (gensym)))
+    `(dolist (,poly ,map)
+       (do-wallsegments (,pt1 ,pt2) ,poly
+	 ,@body))))
+
+(macrolet (
+	   (with-circle ((pos r safe) state &body body)
+	     (let ((shape (gensym))
+		   (symbol (gensym)))
+	       `(with-slots ((,pos pos) (,symbol symbol) (,safe safe)) ,state
+		  (let ((,shape (attribute ,symbol :shape)))
+		    (with-slots ((,r r)) ,shape
+		      ,@body)))))
+	   (with-segment ((pt1-abs pt2-abs) state &body body)
+	     (let ((shape (gensym))
+		   (symbol (gensym))
+		   (pos (gensym))
+		   (pt1 (gensym))
+		   (pt2 (gensym)))
+	       `(with-slots ((,pos pos) (,symbol symbol)) ,state
+		  (let ((,shape (attribute ,symbol :shape)))
+		    (with-slots ((,pt1 pt1) (,pt2 pt2)) ,shape
+		      (let ((,pt1-abs (v+ ,pt1 ,pos))
+			    (,pt2-abs (v+ ,pt2 ,pos)))
+			,@body))))))
+	   )
+  (defun collision-generic (obj1-state obj2-state)
+    (let* (
+	   (earlier-shape-name) (later-shape-name)
+	   (earlier-obj) (later-obj)
+	   (flip)
+	   (shape-lst '(circle segment circle-sweep))
+	   (obj1 (state-symbol obj1-state))
+	   (obj2 (state-symbol obj2-state))
+	   (obj1-shape (attribute obj1 :shape))
+	   (obj2-shape (attribute obj2 :shape))
+	   (obj1-shape-name (type-of obj1-shape))
+	   (obj2-shape-name (type-of obj2-shape))
+	   (pos1 (position obj1-shape-name shape-lst))
+	   (pos2 (position obj2-shape-name shape-lst))
+	   )
+      (if (<= pos1 pos2)
+	  (setf earlier-obj obj1-state
+		earlier-shape-name obj1-shape-name
+		later-obj obj2-state
+		later-shape-name obj2-shape-name
+		)
+	  (setf earlier-obj obj2-state
+		earlier-shape-name obj2-shape-name
+		later-obj obj1-state
+		later-shape-name obj1-shape-name
+		flip t
+		))
+      (let ((returned-acontact
+	     (case earlier-shape-name
+	       (circle
+		(with-circle
+		    (e-pos e-r e-safe) earlier-obj
+		    (case later-shape-name
+		      (circle
+		       (with-circle
+			   (l-pos l-r l-safe) later-obj
+			   (collision-circle-circle e-pos l-pos (+ e-r l-r))
+			   )
+		       )
+		      (segment
+		       (with-segment
+			   (l-pt1 l-pt2) later-obj
+			   (collision-seg-circle-not-over l-pt1 l-pt2 e-pos e-r e-safe)
+			   )
+		       ))))
+	       (segment
+		(case later-shape-name
+		  (segment
+		   ))))))
+	(if returned-acontact
+	    (if flip
+		(invert-pol returned-acontact)
+		returned-acontact)
+	    nil)))))
+
 (defun safe-check (pos0 pos obstacles)
   (catch 'safe
     (dolist (poly obstacles)
@@ -137,50 +235,46 @@
     (dotimes (thing-ndx (length state0-lst))
       (let ((state (elt state0-lst thing-ndx)))
 	(with-slots ((thing symbol) pos safe vel) state
-	  (let ((shape :circle)		;FIXME: actually get this from somewhere
-		(size (attribute thing :size)))
-	    ;; collisions with walls
-	    (dolist (poly obstacles) ;TODO: only generate one contact if the two collisions are from the same point
-	      (dotimes (seg-ndx (1- (length poly)))
-		(case shape
-		  (:circle (let ((seg-acontact (collision-seg-circle-not-over
-						(nth     seg-ndx  poly)
-						(nth (1+ seg-ndx) poly)
-						pos size safe
-						)))
-			     (when seg-acontact
-			       (let ((depth (pt-pol-r seg-acontact))
-				     (normal (pt-pol-theta seg-acontact)))
-					;(setf *debug-contact* seg-acontact) ;TEST
-				 (push (make-contact :depth depth
-						     :normal normal
-						     :thing thing
-						     :thing-pos pos
-						     :thing-vel vel
-						     :hit :wall
-						     :hit-vel (make-pt))
-				       contact-lst)))))
-		  )))
-	    ;; collisions with other guys, do each pair once
-	    (dotimes (o-thing-ndx thing-ndx)
-	      (let* ((other-state (elt state0-lst o-thing-ndx)))
-		(with-slots ((o-thing symbol) (o-pos pos) (o-vel vel)) other-state
-		  (let* ((o-size (attribute o-thing :size))
-			 (melee-acontact (collision-circle-circle pos o-pos (+ size o-size))))
-		    (when melee-acontact
-		      (let ((depth (pt-pol-r melee-acontact))
-			    (normal (pt-pol-theta melee-acontact)))
-			(push (make-contact :depth depth
-					    :normal normal
-					    :thing thing
-					    :thing-pos pos
-					    :thing-vel vel
-					    :hit o-thing
-					    :hit-pos o-pos
-					    :hit-vel o-vel)
-			      contact-lst)))))))
-	    ;; particle collisions go here
-	    ))))
+	  ;; collisions with walls
+					;TODO: only generate one contact if the two collisions are from the same point
+	  (do-walls (pt1 pt2) obstacles
+	    (let* ((wallsym (gensym))
+		   (wall-state (make-state :symbol wallsym
+					   :vel (make-pt)
+					   :pos (make-pt))))
+	      (attribute-set wallsym
+			     :shape (make-segment :pt1 pt1
+						  :pt2 pt2))
+	      (let ((acontact (collision-generic state wall-state)))
+		(when acontact
+		  (with-slots ((depth r) (normal theta)) acontact
+		    (push (make-contact :depth depth
+					:normal normal
+					:thing thing
+					:thing-pos pos
+					:thing-vel vel
+					:hit :wall
+					:hit-vel (make-pt))
+			  contact-lst))))))
+	  ;; collisions with other guys, do each pair once
+	  (dotimes (o-thing-ndx thing-ndx)
+	    (let* ((other-state (elt state0-lst o-thing-ndx)))
+	      (with-slots ((o-thing symbol) (o-pos pos) (o-vel vel)) other-state
+		(let* ((melee-acontact (collision-generic state other-state)))
+		  (when melee-acontact
+		    (let ((depth (pt-pol-r melee-acontact))
+			  (normal (pt-pol-theta melee-acontact)))
+		      (push (make-contact :depth depth
+					  :normal normal
+					  :thing thing
+					  :thing-pos pos
+					  :thing-vel vel
+					  :hit o-thing
+					  :hit-pos o-pos
+					  :hit-vel o-vel)
+			    contact-lst)))))))
+	  ;; particle collisions go here
+	  )))
     contact-lst))
 
 (defun collision-resolve (state0-lst obstacles)

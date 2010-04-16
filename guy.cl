@@ -5,7 +5,7 @@
 (defvar *baddies* nil)
 (defvar *guy* nil)
 (defvar *class-list* nil)
-(defvar *type-list* nil)
+(defvar *projectile-list* nil)
 (defvar *zoom* 10)
 (defvar *time* '(0))
 (defvar *mapbounds*)
@@ -30,22 +30,17 @@
 (defun type-attribute (type attribute)
   "returns the default ATTRIBUTE for class/weapon/type TYPE"
   (or (getf (getf *class-list* type) attribute)
-      (getf (getf *type-list* type) attribute)))
+      (getf (getf *projectile-list* type) attribute)))
 
 ;; this would look good in a hashtable
-(defun attribute (mortal attribute &optional (check-class t) (check-type 1))
+(defun attribute (mortal attribute &optional (check-class t) (check-type t))
   "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
   (or (get mortal attribute)
       (when check-class
 	(type-attribute (attribute mortal :class nil) attribute)
-	;; (getf (getf *class-list* (or (attribute mortal :class nil)
-	;; 			     (attribute mortal :type nil)))
-	;;       attribute)
 	)
       (when check-type
 	(type-attribute (attribute mortal :type nil nil) attribute)
-	;; (getf (getf *type-list* (attribute mortal :type nil nil))
-	;;       attribute)
 	)
       ))
 
@@ -65,16 +60,19 @@
 	      precision))))
 
 (defun spawn-particle (guy type theta)
-  (let ((symbol (gensym))
-	(pos (v+ (attribute guy :pos)
-		 (carterize (make-pt-pol (+ (type-attribute type :size)
-					    1/10 ;FIXME
-					    (attribute guy :size))
-					 theta))))
-	(safe (attribute guy :safe))
-	(vel (v+ (carterize (make-pt-pol 500 theta))
-		 (attribute guy :vel)))
-	(now (time-now)))
+  (let* ((symbol (gensym))
+	 (particle-r (circle-r (type-attribute type :shape)))
+	 (launch-speed 500)
+	 (guy-r (circle-r (attribute guy :shape)))
+	 (pos (v+ (attribute guy :pos)
+		  (carterize (make-pt-pol (+ particle-r
+					     1/10 ;FIXME fudge factor to keep particles from hitting their makers on spawn
+					     guy-r)
+					  theta))))
+	 (safe (attribute guy :safe))
+	 (vel (v+ (carterize (make-pt-pol launch-speed theta))
+		  (attribute guy :vel)))
+	 (now (time-now)))
     (attribute-set symbol
 		   :owner guy
 		   :type type
@@ -143,13 +141,13 @@
     mortal))
 
 ;; should macro this from a list of attributes
-(defun define-class (name &key size acc-spd leg-str mass accelk)
+(defun define-class (name &key acc-spd leg-str mass accelk shape)
   (setf (getf *class-list* name)
-	(list :size size :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk :type :guy)))
+	(list :acc-spd acc-spd :leg-str leg-str :mass mass :accelk accelk :type :guy :shape shape)))
 
-(defun define-type (name &key squish elasticity shape size mass)
-  (setf (getf *type-list* name)
-	(list :squish squish :elasticity elasticity :shape shape :size size :mass mass)))
+(defun define-projectile (name &key mass speed shape)
+  (setf (getf *projectile-list* name)
+	(list :mass mass :speed speed :shape shape)))
 
 (defun get-run (mortal)
   "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"

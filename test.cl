@@ -11,11 +11,12 @@
 (defun test-accelerate-constant (&key (pos (make-pt)) (vel (make-pt)) (acc (make-pt)))
   (defun game-init ()
     (define-class :mrboring
-	:size 1
 	:acc-spd 1
 	:leg-str 1
 	:mass 1
-	:accelk 1)
+	:accelk 1
+	:shape (make-circle :r 1/2)
+	)
     (setf *guy* (spawn-mortal :pos pos
 			      :vel vel
 			      :class :mrboring

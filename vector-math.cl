@@ -100,3 +100,7 @@
   (cond ((> x max) max)
 	((< x min) min)
 	(t x)))
+
+(defun invert-pol (pt-pol)
+  (with-slots (r theta) pt-pol
+      (make-pt-pol r (+ theta pi))))

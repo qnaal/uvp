@@ -10,15 +10,21 @@
     (sdl:point :x (project x)
 	       :y (project y))))
 
-(defun draw-guy (guy)
-  (let* ((pos (attribute guy :pos))
-	 (pt (project-pt pos))
-	 (safe (project-pt (attribute guy :safe)))
-	 (r (project (attribute guy :size))))
-    (sdl-gfx:draw-circle safe r :color sdl:*red* :aa (getf *options* :aa))
-    (sdl-gfx:draw-circle pt r :color sdl:*white* :aa (getf *options* :aa))))
+(defun draw-shape (shape pos &optional (color sdl:*default-color*))
+  (let ((aa (getf *options* :aa)))
+    (case (type-of shape)
+      (circle (let ((r-proj (project (circle-r shape)))
+		    (pos-proj (project-pt pos)))
+		(sdl-gfx:draw-circle pos-proj r-proj :color color :aa aa))))))
 
-(defun draw-poly (poly color)
+(defun draw-guy (guy)
+  (let ((shape (attribute guy :shape))
+	(pos (attribute guy :pos))
+	(safe (attribute guy :safe)))
+    (draw-shape shape safe sdl:*red*)
+    (draw-shape shape pos sdl:*white*)))
+
+(defun draw-poly (poly color)		;FIXME: this needs to be consumed by draw-shape
   ;;(sdl-gfx:draw-shape poly :color color :aa (getf *options* :aa))
   ;;NOTE: temporary workaround because draw-shape inexplicably doesn't
   ;;do antialiasing
@@ -38,8 +44,8 @@
 (defun draw-particle (part)
   (let* ((pos (attribute part :pos))
 	 (theta (attribute part :theta))
-	 (size 10)
+	 (length 10)
 	 (pt1 (project-pt pos))
 	 (pt0 (project-pt (v- pos
-			      (carterize (make-pt-pol size theta))))))
+			      (carterize (make-pt-pol length theta))))))
     (sdl-gfx:draw-line pt1 pt0 :color sdl:*white* :aa (getf *options* :aa))))
