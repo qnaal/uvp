@@ -11,7 +11,7 @@
 ;;     (list (+ x1 x2) (+ y1 y2))))
 
 (defun v+ (&rest vectors)
-  "subtracts cartesian vectors"
+  "adds cartesian vectors"
   (let ((output (make-pt)))
     (dotimes (i (length vectors) output)
       (let ((x (pt-x (nth i vectors)))
@@ -21,6 +21,7 @@
 	(setf output (make-pt (+ x xo) (+ y yo)))))))
 
 (defun v- (pt1 pt2)
+  "subtracts two cartesian vectors"
   (let ((x1 (pt-x pt1))
 	(y1 (pt-y pt1))
 	(x2 (pt-x pt2))
