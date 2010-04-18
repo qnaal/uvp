@@ -83,7 +83,7 @@
 		    (bclose-pt (v+ pt-b1 (v* bclose seg-b))))
 	       (v- aclose-pt bclose-pt))))))))
 
-(defun collision-seg-circle (seg-pt1 seg-pt2 circle-pt circle-r)
+(defun collision-circle-seg (circle-pt circle-r seg-pt1 seg-pt2)
   "return a contact if the circle collides with the segment"
   (let* ((seg (v- seg-pt2 seg-pt1))	;seg/circ relative forms
 	 (circ (v- circle-pt seg-pt1))
@@ -91,12 +91,12 @@
 		     seg)))
     (collision-circle-circle circ col-pt circle-r)))
 
-(defun collision-seg-circle-not-over (seg-pt1 seg-pt2 circle-pt circle-r circle-pt-safe)
+(defun collision-circle-seg-not-over (circle-pt circle-r circle-pt-safe seg-pt1 seg-pt2)
   "return a contact if the circle has crossed over the segment since the last safe point"
   (let* ((path-to-seg (seg-seg-closest seg-pt1 seg-pt2 circle-pt circle-pt-safe)))
     (if path-to-seg			;if the seg aren't touching
 	;; Then do it normally
-	(collision-seg-circle seg-pt1 seg-pt2 circle-pt circle-r)
+	(collision-circle-seg circle-pt circle-r seg-pt1 seg-pt2)
 					;it might be a better plan to
 					;take the magnitude of c-l-c
 					;with the direction of
@@ -205,7 +205,7 @@
 		      (segment
 		       (with-segment
 			   (l-pt1 l-pt2) later-obj
-			   (collision-seg-circle-not-over l-pt1 l-pt2 e-pos e-r e-safe)
+			   (collision-circle-seg-not-over e-pos e-r e-safe l-pt1 l-pt2)
 			   )
 		       ))))
 	       (segment
