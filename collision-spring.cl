@@ -37,15 +37,19 @@
 
 (defun pt-line-dist (pt line-pt1 line-pt2)
   "return the shortest vector to PT from the line"
+  (when (v= line-pt1 line-pt2)
+    (error "need two points to define a line"))
   (let* ((line (v- line-pt2 line-pt1))
 	 (line-close-pt (v+ line-pt1 (v* (proj pt line-pt2 line-pt1) line))))
     (v- pt line-close-pt)))
 
 (defun pt-seg-dist (pt seg-pt1 seg-pt2)
   "return the shortest vector to PT from the segment"
-  (let* ((seg (v- seg-pt2 seg-pt1))
-	 (seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
-    (v- pt seg-close-pt)))
+  (let ((seg (v- seg-pt2 seg-pt1)))
+    (if (v= seg (make-pt))
+	(v- pt seg-pt1)
+	(let ((seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
+	  (v- pt seg-close-pt)))))
 
 (defun seg-seg-closest (pt-a1 pt-a2 pt-b1 pt-b2)
   "return the shortest vector to line-segment-a from line-segment-b, or NIL if they intersect"
@@ -86,10 +90,12 @@
 (defun collision-circle-seg (circle-pt circle-r seg-pt1 seg-pt2)
   "return a contact if the circle collides with the segment"
   (let* ((seg (v- seg-pt2 seg-pt1))	;seg/circ relative forms
-	 (circ (v- circle-pt seg-pt1))
-	 (col-pt (v* (clamp (proj circ seg)) ;the closest point on the seg to the circle
-		     seg)))
-    (collision-circle-circle circ col-pt circle-r)))
+	 (circ (v- circle-pt seg-pt1)))	;
+    (if (v= seg (make-pt))
+	(collision-circle-circle circle-pt seg-pt1 circle-r)
+	(let ((col-pt (v* (clamp (proj circ seg)) ;the closest point on the seg to the circle
+			  seg)))
+	  (collision-circle-circle circ col-pt circle-r)))))
 
 (defun collision-circle-seg-not-over (circle-pt circle-r circle-pt-safe seg-pt1 seg-pt2)
   "return a contact if the circle has crossed over the segment since the last safe point"
