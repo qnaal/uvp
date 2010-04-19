@@ -33,6 +33,10 @@
   (make-pt (* s (pt-x v))
 	   (* s (pt-y v))))
 
+(defun v= (pt1 pt2)
+  "compares two cartesian vectors"
+  (equalp pt1 pt2))
+
 (defun pythag (v)
   "returns magnitude of cartesian vector"
   (let ((x (pt-x v))

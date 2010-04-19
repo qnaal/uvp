@@ -126,11 +126,41 @@
 		 (< 0 bhit 1))
 	ahit))))
 
+(defun chord-slice (circle-pt circle-r line-pt1 line-pt2)
+  "returns the chord of CIRCLE that is a segment of LINE"
+  (let* ((pt-line (pt-line-dist circle-pt line-pt1 line-pt2))
+	 (pt-line-r (pythag pt-line)))
+    (when (> circle-r pt-line-r)
+      (let* ((length (* 2 (sqrt (- (expt circle-r 2)
+				   (expt pt-line-r 2)))))
+	     (theta (azimuth (v- line-pt2 line-pt1)))
+	     (chord-pol (make-pt-pol length theta)))
+	(carterize chord-pol)))))
+
+(defun collision-circle-path (circ-pt circ-r path-pt1 path-pt2 &optional (path-r 0))
+  "fudges a believable contact between CIRC and a point following PATH"
+  (let* ((total-r (+ circ-r path-r))
+	 (pt-dist (pt-seg-dist circ-pt path-pt1 path-pt2))
+	 (pt-dist-r (pythag pt-dist)))
+    (cond
+      ((> pt-dist-r total-r)		;they don't touch
+       nil)
+      ((v= path-pt1 path-pt2)		;path is a point
+       (collision-circle-circle circ-pt path-pt1 total-r))
+      (t
+       (let* ((chord (chord-slice circ-pt circ-r path-pt1 path-pt2))
+	      (chord-start (v+ pt-dist (v* -1/2 chord))) ;relative to circ-pt
+	      (theta (azimuth chord-start))
+	      (acontact (make-pt-pol pt-dist-r theta)))
+	 acontact)))))
+
 (defstruct shape
   )
 
 (defstruct (circle (:include shape))
   r)
+
+(defstruct (circle-sweep (:include circle))) ;setting this dynamically on fast objects would be pretty cool...
 
 (defstruct (segment (:include shape))
   pt1 pt2)
@@ -156,6 +186,16 @@
 		  (let ((,shape (attribute ,symbol :shape)))
 		    (with-slots ((,r r)) ,shape
 		      ,@body)))))
+	   (with-circle-sweep ((pos r safe &optional ppos) state &body body)
+	       (let ((shape (gensym))
+		     (symbol (gensym)))
+		 `(with-slots ((,pos pos) (,symbol symbol) (,safe safe)) ,state
+		    (let ((,shape (attribute ,symbol :shape))
+			  ,@(when ppos
+				  `((,ppos (attribute ,symbol :pos))) ;FIXME: ppos needs to be grabbed from STATE
+				  ))
+		      (with-slots ((,r r)) ,shape
+			,@body)))))
 	   (with-segment ((pt1-abs pt2-abs) state &body body)
 	     (let ((shape (gensym))
 		   (symbol (gensym))
@@ -174,7 +214,7 @@
 	   (earlier-shape-name) (later-shape-name)
 	   (earlier-obj) (later-obj)
 	   (flip)
-	   (shape-lst '(circle segment circle-sweep))
+	   (shape-lst '(circle circle-sweep segment))
 	   (obj1 (state-symbol obj1-state))
 	   (obj2 (state-symbol obj2-state))
 	   (obj1-shape (attribute obj1 :shape))
@@ -208,12 +248,28 @@
 			   (collision-circle-circle e-pos l-pos (+ e-r l-r))
 			   )
 		       )
+		      (circle-sweep
+		       (with-circle-sweep
+			   (l-pos l-r l-safe l-ppos) later-obj
+			 (collision-circle-path e-pos e-r l-pos l-ppos)))
 		      (segment
 		       (with-segment
 			   (l-pt1 l-pt2) later-obj
 			   (collision-circle-seg-not-over e-pos e-r e-safe l-pt1 l-pt2)
 			   )
 		       ))))
+	       (circle-sweep
+		(with-circle-sweep
+		    (e-pos e-r e-safe) earlier-obj
+		  (case later-shape-name
+		    (circle-sweep
+		     (with-circle-sweep
+			 (l-pos l-r l-safe) later-obj
+		       (collision-circle-circle e-pos l-pos (+ e-r l-r))))
+		    (segment
+		     (with-segment
+			 (l-pt1 l-pt2) later-obj
+			 (collision-circle-seg-not-over e-pos e-r e-safe l-pt1 l-pt2))))))
 	       (segment
 		(case later-shape-name
 		  (segment

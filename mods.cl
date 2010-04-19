@@ -24,7 +24,7 @@
     (define-projectile :arrow
 	:mass 1/2
 	:speed 500
-	:shape (make-circle :r 1/10))
+	:shape (make-circle-sweep :r 1/10))
     (setq *guy* (spawn-mortal :pos (make-pt 10 10)
 			      :class :fighter
 			      :control :input)))
