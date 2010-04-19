@@ -10,12 +10,12 @@
 ;;       (list v1 v2)
 ;;     (list (+ x1 x2) (+ y1 y2))))
 
-(defun v+ (&rest vectors)
+(defun v+ (&rest pts)
   "adds cartesian vectors"
   (let ((output (make-pt)))
-    (dotimes (i (length vectors) output)
-      (let ((x (pt-x (nth i vectors)))
-	    (y (pt-y (nth i vectors)))
+    (dotimes (i (length pts) output)
+      (let ((x (pt-x (nth i pts)))
+	    (y (pt-y (nth i pts)))
 	    (xo (pt-x output))
 	    (yo (pt-y output)))
 	(setf output (make-pt (+ x xo) (+ y yo)))))))
@@ -28,25 +28,25 @@
 	(y2 (pt-y pt2)))
     (make-pt (- x1 x2) (- y1 y2))))
 
-(defun v* (s v)
+(defun v* (s pt)
   "scalar-multiplys a cartesian vector"
-  (make-pt (* s (pt-x v))
-	   (* s (pt-y v))))
+  (make-pt (* s (pt-x pt))
+	   (* s (pt-y pt))))
 
 (defun v= (pt1 pt2)
   "compares two cartesian vectors"
   (equalp pt1 pt2))
 
-(defun pythag (v)
+(defun pythag (pt)
   "returns magnitude of cartesian vector"
-  (let ((x (pt-x v))
-	(y (pt-y v)))
+  (let ((x (pt-x pt))
+	(y (pt-y pt)))
     (sqrt (+ (expt x 2)
 	     (expt y 2)))))
 
-(defun azimuth (v)
+(defun azimuth (pt)
   "returns angle of cartesian vector"
-  (atan (pt-y v) (pt-x v)))
+  (atan (pt-y pt) (pt-x pt)))
 
 (defun polarize (pt)
   "converts a cartesian vector to polar"
@@ -73,12 +73,12 @@
 ;;			       theta))
 ;;	    rotated))))
 
-(defun dot (v1 v2)
+(defun dot (pt1 pt2)
   "returns the product of the lengths of the two vectors and the cosine of the angle between them"
-  (let ((x1 (pt-x v1))
-	(y1 (pt-y v1))
-	(x2 (pt-x v2))
-	(y2 (pt-y v2)))
+  (let ((x1 (pt-x pt1))
+	(y1 (pt-y pt1))
+	(x2 (pt-x pt2))
+	(y2 (pt-y pt2)))
     (+ (* x1 x2)
        (* y1 y2))))
 
@@ -86,12 +86,12 @@
   (dot pt (make-pt (cos theta)
 		   (sin theta))))
 
-(defun cross (v1 v2)
+(defun cross (pt1 pt2)
   "the area of the parallelogram formed between the two vectors"
-  (let ((x1 (pt-x v1))
-	(y1 (pt-y v1))
-	(x2 (pt-x v2))
-	(y2 (pt-y v2)))
+  (let ((x1 (pt-x pt1))
+	(y1 (pt-y pt1))
+	(x2 (pt-x pt2))
+	(y2 (pt-y pt2)))
     (- (* x1 y2)
        (* x2 y1))))
 
