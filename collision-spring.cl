@@ -165,19 +165,6 @@
 (defstruct (segment (:include shape))
   pt1 pt2)
 
-(defmacro do-wallsegments ((pt1 pt2) poly &body body)
-  (let ((wall-ndx (gensym)))
-    `(dotimes (,wall-ndx (1- (length ,poly)))
-       (let ((,pt1 (nth     ,wall-ndx  ,poly))
-	     (,pt2 (nth (1+ ,wall-ndx) ,poly)))
-	 ,@body))))
-
-(defmacro do-walls ((pt1 pt2) map &body body)
-  (let ((poly (gensym)))
-    `(dolist (,poly ,map)
-       (do-wallsegments (,pt1 ,pt2) ,poly
-	 ,@body))))
-
 (macrolet (
 	   (with-circle ((pos r safe) state &body body)
 	     (let ((shape (gensym))

@@ -1,21 +1,46 @@
-(defun unproject (x)
+(defun unproject-screen (x)
   (/ x *zoom*))
 
-(defun project (x)
+(defun project-screen (x)
   (round (* x *zoom*)))
 
-(defun project-pt (pt)
-  (let ((x (pt-x pt))
-	(y (pt-y pt)))
-    (sdl:point :x (project x)
-	       :y (project y))))
+(defun board-pt-to-screen (pt-board)
+  (let* ((screen-size *screen-size*)
+	 (screen-middle (v* 1/2 screen-size))
+	 (target-on-board (attribute *guy* :pos))
+	 (pt-on-screen (v+ screen-middle (v* *zoom* (v- pt-board target-on-board)))))
+    (with-slots ((x-screen x) (y-screen y)) pt-on-screen
+      (make-pt-screen (round x-screen) (round y-screen)))))
+
+(defun screen-pt-to-board (pt-screen)
+  (with-slots ((x-screen x) (y-screen y)) pt-screen
+    (let* ((pt-on-screen (make-pt x-screen y-screen))
+	   (screen-size *screen-size*)
+	   (screen-middle (v* 1/2 screen-size))
+	   (target-on-board (attribute *guy* :pos))
+	   (pt-on-board (v+ target-on-board (v* (/ *zoom*) (v- pt-on-screen screen-middle)))))
+      pt-on-board)))
+
+(defun screen-pt-to-sdl (pt-screen)
+  (with-slots (x y) pt-screen
+    (sdl:point :x x :y y)))
+
+(defun draw-line (pt1-screen pt2-screen &optional (color sdl:*default-color*))
+  (let ((aa (getf *options* :aa))
+	(pt1-sdl (screen-pt-to-sdl pt1-screen))
+	(pt2-sdl (screen-pt-to-sdl pt2-screen)))
+    (sdl-gfx:draw-line pt1-sdl pt2-sdl :color color :aa aa)))
+
+(defun draw-circle (pos-sc r-sc &optional (color sdl:*default-color*))
+  (let ((aa (getf *options* :aa))
+	(pos-sdl (screen-pt-to-sdl pos-sc)))
+    (sdl-gfx:draw-circle pos-sdl r-sc :color color :aa aa)))
 
 (defun draw-shape (shape pos &optional (color sdl:*default-color*))
-  (let ((aa (getf *options* :aa)))
-    (case (type-of shape)
-      (circle (let ((r-proj (project (circle-r shape)))
-		    (pos-proj (project-pt pos)))
-		(sdl-gfx:draw-circle pos-proj r-proj :color color :aa aa))))))
+  (case (type-of shape)
+    (circle (let ((r-screen (project-screen (circle-r shape)))
+		  (pos-screen (board-pt-to-screen pos)))
+	      (draw-circle pos-screen r-screen color)))))
 
 (defun draw-guy (guy)
   (let ((shape (attribute guy :shape))
@@ -24,28 +49,17 @@
     (draw-shape shape safe sdl:*red*)
     (draw-shape shape pos sdl:*white*)))
 
-(defun draw-poly (poly color)		;FIXME: this needs to be consumed by draw-shape
-  ;;(sdl-gfx:draw-shape poly :color color :aa (getf *options* :aa))
-  ;;NOTE: temporary workaround because draw-shape inexplicably doesn't
-  ;;do antialiasing
-  (do ((line-index 0 (+ 1 line-index))) ((= line-index (1- (length poly))))
-    (let ((p1 (nth     line-index  poly))
-	  (p2 (nth (1+ line-index) poly)))
-      (sdl-gfx:draw-line p1 p2 :color color :aa (getf *options* :aa)))))
-
-(defun draw-map (map color)
-  (dotimes (poly-index (length map))
-    (let ((poly (nth poly-index map))
-	  (sdl-poly))
-      (dotimes (pt-index (length poly))
-	(push (project-pt (nth pt-index poly)) sdl-poly))
-      (draw-poly sdl-poly color))))
-
 (defun draw-particle (part)
   (let* ((pos (attribute part :pos))
 	 (theta (attribute part :theta))
 	 (length 10)
-	 (pt1 (project-pt pos))
-	 (pt0 (project-pt (v- pos
+	 (pt1 (board-pt-to-screen pos))
+	 (pt0 (board-pt-to-screen (v- pos
 			      (carterize (make-pt-pol length theta))))))
-    (sdl-gfx:draw-line pt1 pt0 :color sdl:*white* :aa (getf *options* :aa))))
+    (draw-line pt1 pt0 sdl:*white*)))
+
+(defun draw-map (map color)
+  (do-walls (pt1 pt2) map
+    (let ((pt1-screen (board-pt-to-screen pt1))
+	  (pt2-screen (board-pt-to-screen pt2)))
+      (draw-line pt1-screen pt2-screen color))))
