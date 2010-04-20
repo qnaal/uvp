@@ -1,4 +1,4 @@
-(proclaim '(inline v- v+ make-pt pt-x pt-y))
+;; (proclaim '(inline v- v+ make-pt pt-x pt-y))
 
 ;; (defun v+ (&rest vectors)
 ;;   "adds cartesian vectors"
