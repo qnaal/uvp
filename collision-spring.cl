@@ -3,24 +3,26 @@
   (- (* (- k) x)
      (* c v)))
 
-(declaim (ftype (function (pt pt real) (or null pt-pol)) collision-circle-circle))
-;; (defun collision-circle-circle (circle1-pt circle2-pt min-dist)
+(declaim (ftype (function (pt real pt &optional real) (or null pt-pol)) collision-circle-circle))
+;; (defun collision-circle-circle (circ1-pt circ1-r circ2-pt &optional (circ2-r 0))
 ;;   (declare (optimize speed (safety 0)))
-;;   "return the contact if the two points collide"
-;;   (let* ((v-diff (v- circle2-pt circle1-pt))
+;;   "return the contact if the two circles collide"
+;;   (let* ((min-dist (+ circ1-r circ2-r))
+;; 	 (v-diff (v- circ2-pt circ1-pt))
 ;; 	 (dist (pythag v-diff)))
 ;;     (when (< dist min-dist)
 ;;       (make-pt-pol (- min-dist dist) (azimuth v-diff)))))
 
-(defun collision-circle-circle (circle1-pt circle2-pt min-dist) ;this one burns
+(defun collision-circle-circle (circ1-pt circ1-r circ2-pt &optional (circ2-r 0)) ;this one burns
   (declare (optimize speed (safety 0)))
-  "return the contact if the two points collide"
-  (let* ((x1 (pt-x circle1-pt))
-	 (y1 (pt-y circle1-pt))
-	 (x2 (pt-x circle2-pt))
-	 (y2 (pt-y circle2-pt))
+  "return the contact if the two circles collide"
+  (let* ((x1 (pt-x circ1-pt))
+	 (y1 (pt-y circ1-pt))
+	 (x2 (pt-x circ2-pt))
+	 (y2 (pt-y circ2-pt))
 	 (x (- x2 x1))
 	 (y (- y2 y1))
+	 (min-dist (+ circ1-r circ2-r))
 	 (d (sqrt (+ (expt x 2)
 		     (expt y 2)))))
     (when (< d min-dist)
@@ -92,10 +94,10 @@
   (let* ((seg (v- seg-pt2 seg-pt1))	;seg/circ relative forms
 	 (circ (v- circle-pt seg-pt1)))	;
     (if (v= seg (make-pt-board))
-	(collision-circle-circle circle-pt seg-pt1 circle-r)
+	(collision-circle-circle circle-pt circle-r seg-pt1)
 	(let ((col-pt (v* (clamp (proj circ seg)) ;the closest point on the seg to the circle
 			  seg)))
-	  (collision-circle-circle circ col-pt circle-r)))))
+	  (collision-circle-circle circ circle-r col-pt)))))
 
 (defun collision-circle-seg-not-over (circle-pt circle-r circle-pt-safe seg-pt1 seg-pt2)
   "return a contact if the circle has crossed over the segment since the last safe point"
@@ -146,7 +148,7 @@
       ((> pt-dist-r total-r)		;they don't touch
        nil)
       ((v= path-pt1 path-pt2)		;path is a point
-       (collision-circle-circle circ-pt path-pt1 total-r))
+       (collision-circle-circle circ-pt total-r path-pt1))
       (t
        (let* ((chord (chord-slice circ-pt total-r path-pt1 path-pt2))
 	      (chord-start (v+ pt-dist (v* -1/2 chord))) ;relative to circ-pt
@@ -232,7 +234,7 @@
 		      (circle
 		       (with-circle
 			   (l-pos l-r l-safe) later-obj
-			   (collision-circle-circle e-pos l-pos (+ e-r l-r))
+			   (collision-circle-circle e-pos e-r l-pos l-r)
 			   )
 		       )
 		      (circle-sweep
@@ -252,7 +254,7 @@
 		      (circle-sweep
 		       (with-circle-sweep
 			   (l-pos l-r l-safe) later-obj
-			   (collision-circle-circle e-pos l-pos (+ e-r l-r))))
+			   (collision-circle-circle e-pos e-r l-pos l-r)))
 		      (segment
 		       (with-segment
 			   (l-pt1 l-pt2) later-obj
