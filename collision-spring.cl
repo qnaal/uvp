@@ -138,7 +138,7 @@
 	(carterize chord-pol)))))
 
 (defun collision-circle-path (circ-pt circ-r path-pt1 path-pt2 &optional (path-r 0))
-  "fudges a believable contact between CIRC and a point following PATH"
+  "fudges a believable contact between circle CIRC and a circle/point following PATH"
   (let* ((total-r (+ circ-r path-r))
 	 (pt-dist (pt-seg-dist circ-pt path-pt1 path-pt2))
 	 (pt-dist-r (pythag pt-dist)))
@@ -148,7 +148,7 @@
       ((v= path-pt1 path-pt2)		;path is a point
        (collision-circle-circle circ-pt path-pt1 total-r))
       (t
-       (let* ((chord (chord-slice circ-pt circ-r path-pt1 path-pt2))
+       (let* ((chord (chord-slice circ-pt total-r path-pt1 path-pt2))
 	      (chord-start (v+ pt-dist (v* -1/2 chord))) ;relative to circ-pt
 	      (theta (azimuth chord-start))
 	      (acontact (make-pt-pol pt-dist-r theta)))
@@ -238,7 +238,7 @@
 		      (circle-sweep
 		       (with-circle-sweep
 			   (l-pos l-r l-safe l-ppos) later-obj
-			   (collision-circle-path e-pos e-r l-pos l-ppos)))
+			   (collision-circle-path e-pos e-r l-pos l-ppos l-r)))
 		      (segment
 		       (with-segment
 			   (l-pt1 l-pt2) later-obj
