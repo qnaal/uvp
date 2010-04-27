@@ -174,15 +174,15 @@
 		    (let ((,r (gur-to-board (circle-r ,shape))))
 		      ,@body)))))
 	   (with-circle-sweep ((pos r safe &optional ppos) state &body body)
-	       (let ((shape (gensym))
-		     (symbol (gensym)))
-		 `(with-slots ((,pos pos) (,symbol symbol) (,safe safe)) ,state
-		    (let ((,shape (attribute ,symbol :shape))
-			  ,@(when ppos
-				  `((,ppos (attribute ,symbol :pos))) ;FIXME: ppos needs to be grabbed from STATE
-				  ))
-		      (let ((,r (gur-to-board (circle-r ,shape))))
-			,@body)))))
+	     (let ((shape (gensym))
+		   (symbol (gensym)))
+	       `(with-slots ((,pos pos) (,symbol symbol) (,safe safe)) ,state
+		  (let ((,shape (attribute ,symbol :shape))
+			,@(when ppos
+				`((,ppos (attribute ,symbol :pos))) ;FIXME: ppos needs to be grabbed from STATE
+				))
+		    (let ((,r (gur-to-board (circle-r ,shape))))
+		      ,@body)))))
 	   (with-segment ((pt1-abs pt2-abs) state &body body)
 	     (let ((shape (gensym))
 		   (symbol (gensym))
@@ -238,7 +238,7 @@
 		      (circle-sweep
 		       (with-circle-sweep
 			   (l-pos l-r l-safe l-ppos) later-obj
-			 (collision-circle-path e-pos e-r l-pos l-ppos)))
+			   (collision-circle-path e-pos e-r l-pos l-ppos)))
 		      (segment
 		       (with-segment
 			   (l-pt1 l-pt2) later-obj
@@ -248,15 +248,15 @@
 	       (circle-sweep
 		(with-circle-sweep
 		    (e-pos e-r e-safe) earlier-obj
-		  (case later-shape-name
-		    (circle-sweep
-		     (with-circle-sweep
-			 (l-pos l-r l-safe) later-obj
-		       (collision-circle-circle e-pos l-pos (+ e-r l-r))))
-		    (segment
-		     (with-segment
-			 (l-pt1 l-pt2) later-obj
-			 (collision-circle-seg-not-over e-pos e-r e-safe l-pt1 l-pt2))))))
+		    (case later-shape-name
+		      (circle-sweep
+		       (with-circle-sweep
+			   (l-pos l-r l-safe) later-obj
+			   (collision-circle-circle e-pos l-pos (+ e-r l-r))))
+		      (segment
+		       (with-segment
+			   (l-pt1 l-pt2) later-obj
+			   (collision-circle-seg-not-over e-pos e-r e-safe l-pt1 l-pt2))))))
 	       (segment
 		(case later-shape-name
 		  (segment
