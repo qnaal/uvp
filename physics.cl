@@ -33,7 +33,7 @@
   (let ((force-collision-plst (collision-resolve state0-lst *map*))
 	(accel-lst))
     (dolist (state0 state0-lst)
-      (with-slots ((guy symbol) pos (vel-current vel) (force-collision force))
+      (with-slots ((guy symbol) pos (vel-current vel))
 	  state0
 	(let* ((force-collision (getf force-collision-plst guy (make-pt)))
 	       (force-motor (motor guy vel-current))
