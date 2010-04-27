@@ -45,12 +45,12 @@
     (let ((pt-on-screen (v+ screen-middle (v* zoom (board-pt-to-gur (v- pt-board target-on-board))))))
       (let ((x-screen (pt-x pt-on-screen))
 	    (y-screen (pt-y pt-on-screen)))
-	(make-pt-screen (round x-screen) (round y-screen)))))
+	(make-pt-pixel (round x-screen) (round y-screen)))))
 
-  (defun screen-pt-to-board (pt-screen)
-    (let ((pt-on-board (v+ target-on-board (gur-pt-to-board (v* (/ zoom) (v- pt-screen screen-middle))))))
+  (defun screen-pt-to-board (pt-pixel)
+    (let ((pt-on-board (v+ target-on-board (gur-pt-to-board (v* (/ zoom) (v- pt-pixel screen-middle))))))
       pt-on-board)))
 
-(defun screen-pt-to-sdl (pt-screen)
-  (with-slots (x y) pt-screen
+(defun screen-pt-to-sdl (pt-pixel)
+  (with-slots (x y) pt-pixel
     (sdl:point :x x :y y)))

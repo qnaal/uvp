@@ -39,12 +39,12 @@
 ;; 		      make-pt-gur
 ;; 		      (&optional (x 0) (y 0)))))
 
-(defstruct (pt-screen (:include
+(defstruct (pt-pixel (:include
 		       pt
 		       (x 0 :type (signed-byte 16))
 		       (y 0 :type (signed-byte 16)))
 		      (:constructor
-		       make-pt-screen
+		       make-pt-pixel
 		       (&optional (x 0) (y 0)))))
 
 ;; physics state of an object- also used for dstate, where it contains

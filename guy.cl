@@ -15,7 +15,7 @@
 (defvar *time-start*)
 (defvar *map-load* nil)
 (defvar *collision-flavor*)
-(defvar *screen-size* (make-pt-screen 800 800))
+(defvar *screen-size* (make-pt-pixel 800 800))
 
 (load "vector-math.cl")
 (load "type-conversions.cl")
@@ -82,7 +82,7 @@
     (print (list key state))
     (case key
       (1 (print 'FIRE)
-	 (let ((aim-rel (v- (screen-pt-to-board (make-pt-screen x y))
+	 (let ((aim-rel (v- (screen-pt-to-board (make-pt-pixel x y))
 			    (attribute *guy* :pos))))
 	   (push (spawn-particle *guy*
 				 :arrow
@@ -169,8 +169,8 @@
 		      (+ 50 (round (* 1/2 (pt-y acc)))) :color sdl:*red*)))
 
 ;; The Top Gameloop
-(defun play-a-game (&optional (width (pt-screen-x *screen-size*)) (height (pt-screen-y *screen-size*)))
-  (setf *screen-size* (make-pt-screen width height))
+(defun play-a-game (&optional (width (pt-pixel-x *screen-size*)) (height (pt-pixel-y *screen-size*)))
+  (setf *screen-size* (make-pt-pixel width height))
   (print (/ (get-internal-real-time)
 	    internal-time-units-per-second))
   (game-init)

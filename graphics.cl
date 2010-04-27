@@ -1,7 +1,7 @@
-(defun draw-line (pt1-screen pt2-screen &optional (color sdl:*default-color*))
+(defun draw-line (pt1-pixel pt2-pixel &optional (color sdl:*default-color*))
   (let ((aa (getf *options* :aa))
-	(pt1-sdl (screen-pt-to-sdl pt1-screen))
-	(pt2-sdl (screen-pt-to-sdl pt2-screen)))
+	(pt1-sdl (screen-pt-to-sdl pt1-pixel))
+	(pt2-sdl (screen-pt-to-sdl pt2-pixel)))
     (sdl-gfx:draw-line pt1-sdl pt2-sdl :color color :aa aa)))
 
 (defun draw-circle (pos-sc r-sc &optional (color sdl:*default-color*))
@@ -11,9 +11,9 @@
 
 (defun draw-shape (shape pos &optional (color sdl:*default-color*))
   (case (type-of shape)
-    (circle (let ((r-screen (project-screen (circle-r shape)))
+    (circle (let ((r-pixel (project-screen (circle-r shape)))
 		  (pos-screen (board-pt-to-screen pos)))
-	      (draw-circle pos-screen r-screen color)))))
+	      (draw-circle pos-screen r-pixel color)))))
 
 (defun draw-guy (guy)
   (let ((shape (attribute guy :shape))
@@ -33,6 +33,6 @@
 
 (defun draw-map (map color)
   (do-walls (pt1 pt2) map
-    (let ((pt1-screen (board-pt-to-screen pt1))
-	  (pt2-screen (board-pt-to-screen pt2)))
-      (draw-line pt1-screen pt2-screen color))))
+    (let ((pt1-pixel (board-pt-to-screen pt1))
+	  (pt2-pixel (board-pt-to-screen pt2)))
+      (draw-line pt1-pixel pt2-pixel color))))
