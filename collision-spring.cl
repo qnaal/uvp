@@ -4,38 +4,14 @@
      (* c v)))
 
 (declaim (ftype (function (pt real pt &optional real) (or null pt-pol)) collision-circle-circle))
-;; (defun collision-circle-circle (circ1-pt circ1-r circ2-pt &optional (circ2-r 0))
-;;   (declare (optimize speed (safety 0)))
-;;   "return the contact if the two circles collide"
-;;   (let* ((min-dist (+ circ1-r circ2-r))
-;; 	 (v-diff (v- circ2-pt circ1-pt))
-;; 	 (dist (pythag v-diff)))
-;;     (when (< dist min-dist)
-;;       (make-pt-pol (- min-dist dist) (azimuth v-diff)))))
-
-(defun collision-circle-circle (circ1-pt circ1-r circ2-pt &optional (circ2-r 0)) ;this one burns
+(defun collision-circle-circle (circ1-pt circ1-r circ2-pt &optional (circ2-r 0))
   (declare (optimize speed (safety 0)))
   "return the contact if the two circles collide"
-  (let* ((x1 (pt-x circ1-pt))
-	 (y1 (pt-y circ1-pt))
-	 (x2 (pt-x circ2-pt))
-	 (y2 (pt-y circ2-pt))
-	 (x (- x2 x1))
-	 (y (- y2 y1))
-	 (min-dist (+ circ1-r circ2-r))
-	 (d (sqrt (+ (expt x 2)
-		     (expt y 2)))))
-    (when (< d min-dist)
-      (make-pt-pol (- min-dist d)
-		   (atan y x)))))
-
-;; (defun collision-circle-circle-minsqrt (circle1-pt circle2-pt min-dist) ;only sqrt if required, slower for some reason
-;;   (let* ((v-diff (v- circle2-pt circle1-pt))
-;; 	 (dist-squared (+ (expt (pt-x v-diff) 2)
-;; 			  (expt (pt-y v-diff) 2))))
-;;     (when (< dist-squared (expt min-dist 2))
-;;       (make-pt-pol (- min-dist (sqrt dist-squared))
-;; 		   (azimuth v-diff)))))
+  (let* ((min-dist (+ circ1-r circ2-r))
+	 (v-diff (v- circ2-pt circ1-pt))
+	 (dist (pythag v-diff)))
+    (when (< dist min-dist)
+      (make-pt-pol (- min-dist dist) (azimuth v-diff)))))
 
 (defun pt-line-dist (pt line-pt1 line-pt2)
   "return the shortest vector to PT from the line"
