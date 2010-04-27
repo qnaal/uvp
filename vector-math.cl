@@ -20,7 +20,7 @@
 	    (yo (pt-y output)))
 	(setf output (make-pt (+ x xo) (+ y yo)))))))
 
-(defun v- (pt1 pt2)
+(defun v- (pt1 pt2)	  ;v- was profiled to be consing 4x what v+ is
   "subtracts two cartesian vectors"
   (let ((x1 (pt-x pt1))
 	(y1 (pt-y pt1))

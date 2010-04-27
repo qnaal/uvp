@@ -60,6 +60,9 @@
 		   :birth now)
     symbol))
 
+(defun destroy-particle (particle)
+  (setf *particles* (delete particle *particles*)))
+
 (load "graphics.cl")
 
 (defun generate-map (map)
@@ -221,7 +224,7 @@
 		   (with-slots (thing hit) contact
 		     (dolist (obj (list thing hit))
 		       (when (attribute obj :volatile)
-			 (setf *particles* (delete obj *particles*)))))))
+			 (destroy-particle obj))))))
 
 	       (dolist (state1 state1-lst) ;apply state1 to objects
 		 (with-slots ((thing symbol) pos safe vel) state1
