@@ -1,30 +1,3 @@
-(defun unproject-screen (x)
-  (/ x *zoom*))
-
-(defun project-screen (x)
-  (round (* x *zoom*)))
-
-(defun board-pt-to-screen (pt-board)
-  (let* ((screen-size *screen-size*)
-	 (screen-middle (v* 1/2 screen-size))
-	 (target-on-board (attribute *guy* :pos))
-	 (pt-on-screen (v+ screen-middle (v* *zoom* (v- pt-board target-on-board)))))
-    (with-slots ((x-screen x) (y-screen y)) pt-on-screen
-      (make-pt-screen (round x-screen) (round y-screen)))))
-
-(defun screen-pt-to-board (pt-screen)
-  (with-slots ((x-screen x) (y-screen y)) pt-screen
-    (let* ((pt-on-screen (make-pt x-screen y-screen))
-	   (screen-size *screen-size*)
-	   (screen-middle (v* 1/2 screen-size))
-	   (target-on-board (attribute *guy* :pos))
-	   (pt-on-board (v+ target-on-board (v* (/ *zoom*) (v- pt-on-screen screen-middle)))))
-      pt-on-board)))
-
-(defun screen-pt-to-sdl (pt-screen)
-  (with-slots (x y) pt-screen
-    (sdl:point :x x :y y)))
-
 (defun draw-line (pt1-screen pt2-screen &optional (color sdl:*default-color*))
   (let ((aa (getf *options* :aa))
 	(pt1-sdl (screen-pt-to-sdl pt1-screen))
@@ -55,7 +28,7 @@
 	 (length 10)
 	 (pt1 (board-pt-to-screen pos))
 	 (pt0 (board-pt-to-screen (v- pos
-			      (carterize (make-pt-pol length theta))))))
+			      (carterize (make-pt-pol-gur length theta))))))
     (draw-line pt1 pt0 sdl:*white*)))
 
 (defun draw-map (map color)

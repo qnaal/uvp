@@ -17,11 +17,13 @@
        (with-slots ((run-r r) (run-theta theta)) run
 	 (let* ((spd-max (* leg-str (/ mass))) ;this needs thought about more- should it take size into account etc
 		(target-r (* spd-max run-r))
-		(vel-target (carterize (make-pt-pol target-r run-theta)))
-		(vel-diff (v- vel vel-target)))
-	   (with-slots ((vel-diff-r r) (vel-diff-theta theta)) (polarize vel-diff)
-	     (let* ((force-pol (make-pt-pol (spring accelk vel-diff-r)
-					    vel-diff-theta))
+		(vel-target (carterize (make-pt-pol-gur target-r run-theta)))
+		(vel-diff-pol (polarize (v- vel vel-target))))
+	   ;; (with-slots ((vel-diff-r r) (vel-diff-theta theta)) (polarize vel-diff)
+	   (let ((vel-diff-r (pt-pol-gur-r vel-diff-pol))
+		 (vel-diff-theta (pt-pol-gur-theta vel-diff-pol)))
+	     (let* ((force-pol (make-pt-pol-gur (spring accelk vel-diff-r) ;this has a strange mix of board and gur units
+						 vel-diff-theta))
 		    (force (carterize force-pol)))
 	       force))))))
     (otherwise (make-pt))))
@@ -49,4 +51,4 @@
   (let ((accel-lst))
     (dolist (state0 state0-lst accel-lst)
       (with-slots (symbol) state0
-	(push (cons symbol (make-pt 1 0)) accel-lst)))))
+	(push (cons symbol (make-pt-gur 1 0)) accel-lst)))))

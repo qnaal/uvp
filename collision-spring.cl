@@ -46,7 +46,7 @@
 (defun pt-seg-dist (pt seg-pt1 seg-pt2)
   "return the shortest vector to PT from the segment"
   (let ((seg (v- seg-pt2 seg-pt1)))
-    (if (v= seg (make-pt))
+    (if (v= seg (make-pt-board))
 	(v- pt seg-pt1)
 	(let ((seg-close-pt (v+ seg-pt1 (v* (clamp (proj pt seg-pt2 seg-pt1)) seg))))
 	  (v- pt seg-close-pt)))))
@@ -91,7 +91,7 @@
   "return a contact if the circle collides with the segment"
   (let* ((seg (v- seg-pt2 seg-pt1))	;seg/circ relative forms
 	 (circ (v- circle-pt seg-pt1)))	;
-    (if (v= seg (make-pt))
+    (if (v= seg (make-pt-board))
 	(collision-circle-circle circle-pt seg-pt1 circle-r)
 	(let ((col-pt (v* (clamp (proj circ seg)) ;the closest point on the seg to the circle
 			  seg)))
@@ -171,7 +171,7 @@
 		   (symbol (gensym)))
 	       `(with-slots ((,pos pos) (,symbol symbol) (,safe safe)) ,state
 		  (let ((,shape (attribute ,symbol :shape)))
-		    (with-slots ((,r r)) ,shape
+		    (let ((,r (gur-to-board (circle-r ,shape))))
 		      ,@body)))))
 	   (with-circle-sweep ((pos r safe &optional ppos) state &body body)
 	       (let ((shape (gensym))
@@ -181,7 +181,7 @@
 			  ,@(when ppos
 				  `((,ppos (attribute ,symbol :pos))) ;FIXME: ppos needs to be grabbed from STATE
 				  ))
-		      (with-slots ((,r r)) ,shape
+		      (let ((,r (gur-to-board (circle-r ,shape))))
 			,@body)))))
 	   (with-segment ((pt1-abs pt2-abs) state &body body)
 	     (let ((shape (gensym))
@@ -289,8 +289,8 @@
 	  (do-walls (pt1 pt2) obstacles
 	    (let* ((wallsym (gensym))
 		   (wall-state (make-state :symbol wallsym
-					   :vel (make-pt)
-					   :pos (make-pt))))
+					   :vel (make-pt-gur)
+					   :pos (make-pt-board))))
 	      (attribute-set wallsym
 			     :shape (make-segment :pt1 pt1
 						  :pt2 pt2))
@@ -303,7 +303,7 @@
 					:thing-pos pos
 					:thing-vel vel
 					:hit :wall
-					:hit-vel (make-pt))
+					:hit-vel (make-pt-gur))
 			  contact-lst))))))
 	  ;; collisions with other guys, do each pair once
 	  (dotimes (o-thing-ndx thing-ndx)
@@ -334,7 +334,7 @@
       (with-slots (depth normal thing thing-vel hit hit-vel) contact
 	;; calculate a force for each contact
 	(let* ((vel-diff (v- thing-vel
-			     (or hit-vel (make-pt))))
+			     (or hit-vel (make-pt-gur))))
 	       (vel-diff-component (component vel-diff normal))
 	       ;; this is where I make different surfaces 'feel' different to smack into
 	       (force-r (let* ((thing-type :guy)

@@ -2,7 +2,8 @@
 (defstruct (pt (:constructor
 		make-pt
 		(&optional (x 0) (y 0))))
-  x y)
+  (x 0 :type real)
+  (y 0 :type real))
 
 
 ;; used for any polar vector, including acontact (anonymous contact)
@@ -11,6 +12,32 @@
 	      make-pt-pol
 	      (&optional (r 0) (theta 0))))
   r theta)
+
+(defstruct (pt-pol-board (:include pt-pol)
+			 (:constructor
+			  make-pt-pol-board
+			  (&optional (r 0) (theta 0)))))
+
+(defstruct (pt-board (:include
+		      pt
+		      ;; (x 0 :type integer)
+		      ;; (y 0 :type integer)
+		      )
+		     (:constructor
+		      make-pt-board
+		      (&optional (x 0) (y 0)))))
+
+(defun pt-board-x* (pt)
+  (pt-x pt))
+(defun pt-board-y* (pt)
+  (pt-y pt))
+
+;; Eventually I want to make this a type, but right now it is simpler just to use converting functions.
+;; (defstruct (pt-gur (:include
+;; 		      pt)
+;; 		     (:constructor
+;; 		      make-pt-gur
+;; 		      (&optional (x 0) (y 0)))))
 
 (defstruct (pt-screen (:include
 		       pt
@@ -52,3 +79,29 @@
     `(dolist (,poly ,map)
        (do-wallsegments (,pt1 ,pt2) ,poly
 	 ,@body))))
+
+(defun type-attribute (type attribute)
+  "returns the default ATTRIBUTE for class/weapon/type TYPE"
+  (or (getf (getf *class-list* type) attribute)
+      (getf (getf *projectile-list* type) attribute)))
+
+;; this would look good in a hashtable
+(defun attribute (mortal attribute &optional (check-class t) (check-type t))
+  "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
+  (or (get mortal attribute)
+      (when check-class
+	(type-attribute (attribute mortal :class nil) attribute)
+	)
+      (when check-type
+	(type-attribute (attribute mortal :type nil nil) attribute)
+	)
+      ))
+
+(defun attribute-set (mortal &rest args)
+  (if (= (length args) 2)
+      (destructuring-bind (attribute value) args
+	(setf (get mortal attribute) value))
+      (dotimes (i (/ (length args) 2))
+	(let* ((attribute (pop args))
+	       (value (pop args)))
+	  (attribute-set mortal attribute value)))))

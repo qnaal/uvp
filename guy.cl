@@ -18,6 +18,7 @@
 (defvar *screen-size* (make-pt-screen 800 800))
 
 (load "vector-math.cl")
+(load "type-conversions.cl")
 
 (defun time-now ()
   (car *time*))
@@ -27,32 +28,6 @@
   (setf *time* (push (/ (get-internal-real-time)
 			internal-time-units-per-second)
 		     (car *time*))))
-
-(defun type-attribute (type attribute)
-  "returns the default ATTRIBUTE for class/weapon/type TYPE"
-  (or (getf (getf *class-list* type) attribute)
-      (getf (getf *projectile-list* type) attribute)))
-
-;; this would look good in a hashtable
-(defun attribute (mortal attribute &optional (check-class t) (check-type t))
-  "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
-  (or (get mortal attribute)
-      (when check-class
-	(type-attribute (attribute mortal :class nil) attribute)
-	)
-      (when check-type
-	(type-attribute (attribute mortal :type nil nil) attribute)
-	)
-      ))
-
-(defun attribute-set (mortal &rest args)
-  (if (= (length args) 2)
-      (destructuring-bind (attribute value) args
-	(setf (get mortal attribute) value))
-      (dotimes (i (/ (length args) 2))
-	(let* ((attribute (pop args))
-	       (value (pop args)))
-	  (attribute-set mortal attribute value)))))
 
 
 (defun decimalize (number places)
@@ -66,12 +41,12 @@
 	 (launch-speed 500)
 	 (guy-r (circle-r (attribute guy :shape)))
 	 (pos (v+ (attribute guy :pos)
-		  (carterize (make-pt-pol (+ particle-r
-					     1/10 ;FIXME fudge factor to keep particles from hitting their makers on spawn
-					     guy-r)
-					  theta))))
+		  (carterize (make-pt-pol-gur (+ particle-r
+						  1/10 ;FIXME fudge factor to keep particles from hitting their makers on spawn
+						  guy-r)
+					       theta))))
 	 (safe (attribute guy :safe))
-	 (vel (v+ (carterize (make-pt-pol launch-speed theta))
+	 (vel (v+ (carterize (make-pt-pol-gur launch-speed theta))
 		  (attribute guy :vel)))
 	 (now (time-now)))
     (attribute-set symbol
@@ -93,7 +68,7 @@
       (let ((poly-gen))
 	(dolist (lst-pt poly)
 	  (destructuring-bind (x y) lst-pt
-	    (push (make-pt x y) poly-gen)))
+	    (push (make-pt-gur x y) poly-gen)))
 	(push poly-gen map-gen)))
     map-gen))
 (defvar *map* (generate-map *map-load*))
@@ -128,14 +103,14 @@
       (make-pt-pol r-crop theta))))
 
 ;; should include a key for any mods (from magic, leveling, etc)
-(defun spawn-mortal (&key pos class control (vel (make-pt)))
+(defun spawn-mortal (&key pos class control (vel (make-pt-board)))
   (let ((mortal (gensym)))
     (attribute-set mortal
 		   :class class
 		   :pos pos
 		   :safe pos
 		   :vel vel
-		   :acc-pol (make-pt-pol)
+		   :acc-pol (make-pt-pol-board)
 		   :control control
 		   :motor :motor
 		   :hp (getf (getf *class-list* class) :health))
@@ -154,11 +129,11 @@
   "returns a polar vector of the direction mortal wants to go, scaled from 0 to 1 based on how much it wants to go there"
   (case (attribute mortal :control)
     (:ai (let* ((pos (attribute mortal :pos))
-		(x (pt-x pos))
-		(y (pt-y pos))
+		(x (pt-board-x* pos))
+		(y (pt-board-y* pos))
 		(target-pt (attribute *guy* :pos))
-		(target-x (pt-x target-pt))
-		(target-y (pt-y target-pt)))
+		(target-x (pt-board-x* target-pt))
+		(target-y (pt-board-y* target-pt)))
 	   (make-pt-pol 1 (atan (- target-y y)
 				(- target-x x)))))
     (:input (get-input-polar))
@@ -262,6 +237,7 @@
 	 (movement-debug *guy*)
 	 (game-gameloop)
 
+	 (update-screen)
 	 (draw-guy *guy*)
 	 (dolist (baddie *baddies*)
 	   (draw-guy baddie))
@@ -280,7 +256,7 @@
 	    internal-time-units-per-second))
   ;; (define-class :fighter 1 20 40 2 4)
   ;; (define-class :baddie-swarmer 1/2 1 50 1/2 1/2)
-  (setq *guy* (spawn-mortal :pos (make-pt 10 10)
+  (setq *guy* (spawn-mortal :pos (make-pt-board 10 10)
 			    :class :fighter
 			    :control :input)
 	*baddies* ())

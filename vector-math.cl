@@ -35,7 +35,10 @@
 
 (defun v= (pt1 pt2)
   "compares two cartesian vectors"
-  (equalp pt1 pt2))
+  (with-slots ((x1 x) (y1 y)) pt1
+    (with-slots ((x2 x) (y2 y)) pt2
+      (and (= x1 x2)
+	   (= y1 y2)))))
 
 (defun pythag (pt)
   "returns magnitude of cartesian vector"

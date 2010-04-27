@@ -25,7 +25,7 @@
 	:mass 1/2
 	:speed 500
 	:shape (make-circle-sweep :r 1/10))
-    (setq *guy* (spawn-mortal :pos (make-pt 10 10)
+    (setq *guy* (spawn-mortal :pos (make-pt-board 10 10)
 			      :class :fighter
 			      :control :input)))
 
@@ -34,7 +34,7 @@
   (defun game-gameloop ()
     (if (< (length *baddies*)
 	   10)
-	(push (spawn-mortal :pos (v+ (make-pt 51 51) (make-pt (random 8.0) (random 8.0)))
+	(push (spawn-mortal :pos (v+ (make-pt-gur 51 51) (make-pt-gur (random 8.0) (random 8.0)))
 			    :class :baddie-swarmer
 			    :control :ai)
 	      *baddies*))))

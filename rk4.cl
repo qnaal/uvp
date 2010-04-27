@@ -7,8 +7,8 @@
 	       (let ((dstate (if prev-dstate
 				 (find thing prev-dstate :key #'state-symbol)
 				 (make-state :symbol t ;a blank deriv to pretend to do math to
-					     :pos (make-pt)
-					     :vel (make-pt)))))
+					     :pos (make-pt-board)
+					     :vel (make-pt-board)))))
 		 (with-slots ((dp pos) (dv vel)) dstate
 		   (let ((p1 (v+ p0 (v* dt dp)))
 			 (v1 (v+ v0 (v* dt dv))))
@@ -22,8 +22,8 @@
 		 (let ((dstate (if prev-dstate
 				   (find thing prev-dstate :key #'state-symbol)
 				   (make-state :symbol t
-					       :pos (make-pt)
-					       :vel (make-pt)))))
+					       :pos (make-pt-board)
+					       :vel (make-pt-board)))))
 		   (with-slots ((dv vel)) dstate
 		     (let ((out-dpos (v+ v0 (v* dt dv))) ;same as v1 from above
 			   (out-dvel (cdr (assoc thing dvel-lst))))

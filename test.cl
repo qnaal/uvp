@@ -8,7 +8,7 @@
 	    (decimalize measured places)
 	    (decimalize error places))))
 
-(defun test-accelerate-constant (&key (pos (make-pt)) (vel (make-pt)) (acc (make-pt)))
+(defun test-accelerate-constant (&key (pos (make-pt-gur)) (vel (make-pt-gur)) (acc (make-pt-gur)))
   (defun game-init ()
     (define-class :mrboring
 	:acc-spd 1
@@ -42,7 +42,7 @@
 			(1.005 2.34)
 			)))
     ;; (setf *map-load* '(((10 0) (10 100)))) ;one easy bounce
-    (test-accelerate-constant :pos (make-pt 20 20) :vel (make-pt (- speed-initial) 0))
+    (test-accelerate-constant :pos (make-pt-gur 20 20) :vel (make-pt-gur (- speed-initial) 0))
     (play-a-game)
     (let* ((speed-final (pythag (attribute *guy* :vel))))
       (error-report speed-final speed-initial :places places)
@@ -50,9 +50,9 @@
 
 (defun testcase-constant-acceleration ()
   (let ((places 3)
-	(acc (make-pt 100 0))
-	(v0 (make-pt 0 0))
-	(p0 (make-pt 10 20)))
+	(acc (make-pt-gur 100 0))
+	(v0 (make-pt-gur 0 0))
+	(p0 (make-pt-gur 10 20)))
     (setf *map-load* nil)
     (test-accelerate-constant :pos p0 :vel v0 :acc acc)
     (play-a-game)
