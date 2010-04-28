@@ -85,17 +85,14 @@
   (or (getf (getf *class-list* type) attribute)
       (getf (getf *projectile-list* type) attribute)))
 
-;; this would look good in a hashtable
-(defun attribute (mortal attribute &optional (check-class t) (check-type t))
-  "returns Mortal's Attribute, whether from Mortal's plist or Mortal's class"
-  (or (get mortal attribute)
-      (when check-class
-	(type-attribute (attribute mortal :class nil) attribute)
-	)
-      (when check-type
-	(type-attribute (attribute mortal :type nil nil) attribute)
-	)
-      ))
+(flet ((check-obj (obj attribute)
+	 (get obj attribute)))
+  (defun attribute (obj attribute)
+    "returns OBJ's ATTRIBUTE"
+    (or (check-obj obj attribute)
+	(type-attribute (check-obj obj :class) attribute)
+	(type-attribute (check-obj obj :type) attribute)
+	)))
 
 (defun attribute-set (mortal &rest args)
   (if (= (length args) 2)
