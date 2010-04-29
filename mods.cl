@@ -25,7 +25,7 @@
 	:mass 1/2
 	:speed 500
 	:shape (make-circle-sweep :r 1/10))
-    (setq *guy* (spawn-mortal :pos (make-pt-board 10 10)
+    (setq *guy* (spawn-mortal :pos (make-pt-gur 10 10)
 			      :class :fighter
 			      :control :input)))
 
