@@ -33,7 +33,7 @@
 
   (defun game-gameloop ()
     (if (< (length *baddies*)
-	   10)
+	   20)
 	(push (spawn-mortal :pos (v+ (make-pt-gur 51 51) (make-pt-gur (random 8.0) (random 8.0)))
 			    :class :baddie-swarmer
 			    :control :ai)
