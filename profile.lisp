@@ -1,4 +1,4 @@
-;grep defun *.cl | gawk '{print $2}' 
+;grep defun *.lisp | gawk '{print $2}'
 
 
 (defmacro watch (code)

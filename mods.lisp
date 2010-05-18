@@ -1,4 +1,4 @@
-(load "test.cl")
+(load "test.lisp")
 
 (defun game-baddies ()
   (defun game-init ()

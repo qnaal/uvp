@@ -1,7 +1,7 @@
 (asdf:oos 'asdf:load-op 'lispbuilder-sdl)
 (asdf:oos 'asdf:load-op 'lispbuilder-sdl-gfx)
 
-(load "datatypes.cl")
+(load "datatypes.lisp")
 (defvar *options* nil)
 (defvar *baddies* nil)
 (defvar *guy* nil)
@@ -17,8 +17,8 @@
 (defvar *collision-flavor*)
 (defvar *screen-size* (make-pt-pixel 800 800))
 
-(load "vector-math.cl")
-(load "type-conversions.cl")
+(load "vector-math.lisp")
+(load "type-conversions.lisp")
 
 (defun time-now ()
   (car *time*))
@@ -63,7 +63,7 @@
 (defun destroy-particle (particle)
   (setf *particles* (delete particle *particles*)))
 
-(load "graphics.cl")
+(load "graphics.lisp")
 
 (defun generate-map (map)
   (let ((map-gen))
@@ -142,10 +142,10 @@
     (:input (get-input-polar))
     (:none (make-pt-pol))))
 
-(load "collision-spring.cl")
-(load "physics.cl")
-(load "rk4.cl")
-(load "mods.cl")
+(load "collision-spring.lisp")
+(load "physics.lisp")
+(load "rk4.lisp")
+(load "mods.lisp")
 (game-baddies)
 
 (defun movement-debug (mortal)
