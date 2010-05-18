@@ -233,7 +233,7 @@
 				  :safe safe
 				  :vel vel))))
 	     (game-timestep)
-	     ;; (print (list 'fps (round (sdl:average-fps))))
+	     (print (list 'fps (round (sdl:average-fps))))
 	     )
 	   )
 	 ;; everything but the physics
